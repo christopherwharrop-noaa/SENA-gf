@@ -1,7 +1,12 @@
 .SUFFIXES:
 EXE=gf_test
 
-FC=gfortran
+#FC=gfortran
+#FCFLAGS+=-O3 -openmp
+
+FC=nvfortran
+FCFLAGS+=-O3 -mp -acc -Minfo=accel -Minline -ta=tesla:cc70
+
 COMPILE.f08 = $(FC) $(FCFLAGS) $(TARGET_ARCH) -c
 MAKEMOD.f08 = $(FC) $(FCFLAGS) $(TARGET_ARCH) -fsyntax-only -c
 LINK.f08 = $(FC) $(FCFLAGS) $(TARGET_ARCH)

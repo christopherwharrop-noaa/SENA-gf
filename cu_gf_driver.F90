@@ -40,11 +40,14 @@ contains
          errflg = 0
          
          ! DH* temporary
-         if (mpirank==mpiroot) then
-            write(0,*) ' -----------------------------------------------------------------------------------------------------------------------------'
-            write(0,*) ' --- WARNING --- the CCPP Grell Freitas convection scheme is currently under development, use at your own risk --- WARNING ---'
-            write(0,*) ' -----------------------------------------------------------------------------------------------------------------------------'
-         end if
+         ! if (mpirank==mpiroot) then
+         !    write(0,*) ' ----------------------------------------------------------'//&
+         !                '-------------------------------------------------------------------'
+         !    write(0,*) ' --- WARNING --- the CCPP Grell Freitas convection scheme is'//&
+         !                ' currently under development, use at your own risk --- WARNING ---'
+         !    write(0,*) ' --------------------------------------------------------------------'//&
+         !                '---------------------------------------------------------'
+         ! end if
          ! *DH temporary
 
          ! Consistency checks
@@ -110,38 +113,52 @@ contains
    logical, intent(in   ) :: ldiag3d
 
    real(kind=kind_phys), intent(inout)                      :: dtend(:,:,:)
+!$acc declare copy(dtend)
    integer, intent(in)                                      :: dtidx(:,:), &
         index_of_x_wind, index_of_y_wind, index_of_temperature,            &
         index_of_process_scnv, index_of_process_dcnv, ntqv, ntcw, ntiw
+!$acc declare copyin(dtidx)
    
    real(kind=kind_phys),  dimension( : , : ), intent(in    ) :: forcet,forceqv_spechum,w,phil
    real(kind=kind_phys),  dimension( : , : ), intent(inout ) :: t,us,vs
    real(kind=kind_phys),  dimension( : , : ), intent(inout ) :: qci_conv
    real(kind=kind_phys),  dimension( : , : ), intent(out   ) :: cnvw_moist,cnvc
    real(kind=kind_phys),  dimension( : , : ), intent(inout ) :: cliw, clcw
+!$acc declare copyin(forcet,forceqv_spechum,w,phil)
+!$acc declare copy(t,us,vs,qci_conv,cliw, clcw)
+!$acc declare copyout(cnvw_moist,cnvc)
 
    real(kind=kind_phys), allocatable :: clcw_save(:,:), cliw_save(:,:)
 
    integer, dimension (:), intent(out) :: hbot,htop,kcnv
    integer, dimension (:), intent(in)  :: xland
    real(kind=kind_phys),    dimension (:), intent(in) :: pbl
+!$acc declare copyout(hbot,htop,kcnv)
+!$acc declare copyin(xland,pbl)
    integer, dimension (im) :: tropics
+!$acc declare create(tropics)
 !  ruc variable
    real(kind=kind_phys), dimension (:),   intent(in)  :: hfx2,qfx2,psuri
    real(kind=kind_phys), dimension (:,:), intent(out) :: ud_mf,dd_mf,dt_mf
    real(kind=kind_phys), dimension (:),   intent(out) :: raincv,cld1d
    real(kind=kind_phys), dimension (:,:), intent(in)  :: t2di,p2di
+!$acc declare copyin(hfx2,qfx2,psuri,t2di,p2di)
+!$acc declare copyout(ud_mf,dd_mf,dt_mf,raincv,cld1d)
    ! Specific humidity from FV3
    real(kind=kind_phys), dimension (:,:), intent(in) :: qv2di_spechum
    real(kind=kind_phys), dimension (:,:), intent(inout) :: qv_spechum
+!$acc declare copyin(qv2di_spechum) copy(qv_spechum)
    ! Local water vapor mixing ratios and cloud water mixing ratios
    real(kind=kind_phys), dimension (im,km) :: qv2di, qv, forceqv, cnvw
+!$acc declare create(qv2di, qv, forceqv, cnvw)
    !
    real(kind=kind_phys), dimension(:),intent(in) :: garea
+!$acc declare copyin(garea)
    real(kind=kind_phys), intent(in   ) :: dt 
 
    integer, intent(in   ) :: imfshalcnv
    integer, dimension(:), intent(inout) :: cactiv
+!$acc declare copy(cactiv)
 
    character(len=*), intent(out) :: errmsg
    integer,          intent(out) :: errflg
@@ -167,11 +184,22 @@ contains
    integer, dimension (im) :: kbcon, ktop,ierr,ierrs,ierrm,kpbli
    integer, dimension (im) :: k22s,kbcons,ktops,k22,jmin,jminm
    integer, dimension (im) :: kbconm,ktopm,k22m
+!$acc declare create(k22_shallow,kbcon_shallow,ktop_shallow,rand_mom,rand_vmas,        &
+!$acc                rand_clos,gdc,gdc2,ht,dx,outt,outq,outqc,phh,subm,cupclw,cupclws, &
+!$acc                dhdt,zu,zus,zd,phf,zum,zdm,outum,outvm,   &
+!$acc                outts,outqs,outqcs,outu,outv,outus,outvs, &
+!$acc                outtm,outqm,outqcm,submm,cupclwm,         &
+!$acc                cnvwt,cnvwts,cnvwtm,hco,hcdo,zdo,zdd,hcom,hcdom,zdom, &
+!$acc                tau_ecmwf,edt,edtm,edtd,ter11,aa0,xlandi, &
+!$acc                pret,prets,pretm,hexec,forcing,forcing2,  &
+!$acc                kbcon, ktop,ierr,ierrs,ierrm,kpbli, &
+!$acc                k22s,kbcons,ktops,k22,jmin,jminm,kbconm,ktopm,k22m)
 
    integer :: iens,ibeg,iend,jbeg,jend,n
    integer :: ibegh,iendh,jbegh,jendh
    integer :: ibegc,iendc,jbegc,jendc,kstop
    real(kind=kind_phys), dimension(im,km) :: rho_dryar
+!$acc declare create(rho_dryar)
    real(kind=kind_phys) :: pten,pqen,paph,zrho,pahfs,pqhfl,zkhvfl,pgeoh
    integer, parameter :: ipn = 0
 
@@ -185,6 +213,9 @@ contains
    real(kind=kind_phys), dimension (im)    :: ccn,z1,psur,cuten,cutens,cutenm
    real(kind=kind_phys), dimension (im)    :: umean,vmean,pmean
    real(kind=kind_phys), dimension (im)    :: xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv
+!$acc declare create(qcheck,zo,t2d,q2d,po,p2d,rhoi,tn,qo,tshall,qshall,dz8w,omeg, &
+!$acc                ccn,z1,psur,cuten,cutens,cutenm,umean,vmean,pmean,           &
+!$acc                xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv)
 
    integer :: i,j,k,icldck,ipr,jpr,jpr_deep,ipr_deep,uidx,vidx,tidx,qidx
    integer :: itf,jtf,ktf,iss,jss,nbegin,nend,cliw_idx,clcw_idx
@@ -194,6 +225,7 @@ contains
    real(kind=kind_phys), dimension(km)   :: massflx,trcflx_in1,clw_in1,clw_ten1,po_cup
 !  real(kind=kind_phys), dimension(km)   :: trcflx_in2,clw_in2,clw_ten2
    real(kind=kind_phys), dimension (im)  :: flux_tun,tun_rad_mid,tun_rad_shall,tun_rad_deep
+!$acc declare create(flux_tun,tun_rad_mid,tun_rad_shall,tun_rad_deep)
    character*50 :: ierrc(im),ierrcm(im)
    character*50 :: ierrcs(im)
 !  ruc variable
@@ -201,6 +233,7 @@ contains
 !  qfx2 -- latent heat flux (kg/kg m/s), positive upward from sfc 
 !  gf needs them in w/m2. define hfx and qfx after simple unit conversion
    real(kind=kind_phys), dimension (im)  :: hfx,qfx
+!$acc declare create(hfx,qfx)
    real(kind=kind_phys) tem,tem1,tf,tcr,tcrf
    real(kind=kind_phys) :: cliw_shal,clcw_shal,tem_shal, cliw_both, weight_sum
    real(kind=kind_phys) :: cliw_deep,clcw_deep,tem_deep, clcw_both
@@ -232,14 +265,18 @@ contains
        if(cliw_deep_idx>=1 .or. clcw_deep_idx>=1 .or. &
             cliw_shal_idx>=1 .or.  clcw_shal_idx>=1) then
          allocate(clcw_save(im,km), cliw_save(im,km))
-         clcw_save=clcw
-         cliw_save=cliw
+!$acc enter data create(clcw_save,cliw_save)
+!$acc kernels
+         clcw_save(:,:)=clcw(:,:)
+         cliw_save(:,:)=cliw(:,:)
+!$acc end kernels
        endif
      endif
 
 !
 ! Scale specific humidity to dry mixing ratio
 !
+!$acc kernels
      ! state in before physics
      qv2di = qv2di_spechum/(1.0_kind_phys-qv2di_spechum)
      ! forcing by dynamics, based on state in
@@ -254,6 +291,7 @@ contains
      rand_mom(:)    = 0.
      rand_vmas(:)   = 0.
      rand_clos(:,:) = 0.
+!$acc end kernels
 !
      its=1
      ite=im
@@ -264,6 +302,7 @@ contains
      kts=1
      kte=km
      ktf=kte-1
+!$acc kernels
 ! 
      tropics(:)=0
 !
@@ -282,6 +321,7 @@ contains
 !    dx=40075000./float(lonf)
 !    tscl_kf=dx/25000.
      ccn(its:ite)=150.
+!$acc end kernels
   
      if (imfshalcnv == 3) then
       ishallow_g3 = 1
@@ -308,13 +348,17 @@ contains
      ztq=0.
      hfm=0.
      qfm=0.
-     ud_mf =0.
-     dd_mf =0.
-     dt_mf =0.
+!$acc kernels
+     ud_mf(:,:) =0.
+     dd_mf(:,:) =0.
+     dt_mf(:,:) =0.
      tau_ecmwf(:)=0.
+!$acc end kernels
 !
      j=1
+!$acc kernels
      ht(:)=phil(:,1)/g
+!$acc loop private(zh)
      do i=its,ite
       cld1d(i)=0.
       zo(i,:)=phil(i,:)/g
@@ -324,6 +368,7 @@ contains
       do k=kts+1,ktf
        dz8w(i,k)=zo(i,k+1)-zo(i,k)
       enddo
+!$acc loop seq
       do k=kts+1,ktf
        zh(k)=zh(k-1)+dz8w(i,k-1)
        if(zh(k).gt.pbl(i))then
@@ -332,7 +377,9 @@ contains
        endif
       enddo
      enddo
+!$acc end kernels
 
+!$acc kernels
      do i= its,itf
       forcing(i,:)=0.
       forcing2(i,:)=0.
@@ -357,7 +404,6 @@ contains
        zdm(i,k)=0.
       enddo
      enddo
-
      psur(:)=0.01*psuri(:)
      do i=its,itf
       ter11(i)=max(0.,ht(i))
@@ -383,7 +429,10 @@ contains
      cuten(:)=0.
      cutenm(:)=0.
      cutens(:)=0.
+!$acc end kernels
      ierrc(:)=" "
+!$acc kernels
+     
 
      kbcon(:)=0
      kbcons(:)=0
@@ -448,7 +497,7 @@ contains
 
      subm(:,:)=0.
      dhdt(:,:)=0.
-     
+
      do k=kts,ktf
       do i=its,itf
         p2d(i,k)=0.01*p2di(i,k)
@@ -464,7 +513,9 @@ contains
         qshall(i,k)=q2d(i,k)
       enddo
      enddo
+!$acc end kernels
 123  format(1x,i2,1x,2(1x,f8.0),1x,2(1x,f8.3),3(1x,e13.5))
+!$acc kernels
      do i=its,itf
       do k=kts,kpbli(i)
          tshall(i,k)=t(i,k)
@@ -497,12 +548,16 @@ contains
 !      qshall(i,k)=qv(i,k) 
       enddo
      enddo
+!$acc loop collapse(2) independent private(dp)
      do k=  kts+1,ktf-1
       do i = its,itf
        if((p2d(i,1)-p2d(i,k)).gt.150.and.p2d(i,k).gt.300)then
          dp=-.5*(p2d(i,k+1)-p2d(i,k-1))
+!$acc atomic
          umean(i)=umean(i)+us(i,k)*dp
+!$acc atomic
          vmean(i)=vmean(i)+vs(i,k)*dp
+!$acc atomic
          pmean(i)=pmean(i)+dp
        endif
       enddo
@@ -517,15 +572,18 @@ contains
      do i = its,itf
       if(mconv(i).lt.0.)mconv(i)=0.
      enddo
+!$acc end kernels
 !
 !---- call cumulus parameterization
 !
        if(ishallow_g3.eq.1)then
 
+!$acc kernels
           do i=its,ite
            ierrs(i)=0
            ierrm(i)=0
           enddo
+!$acc end kernels
 !
 !> - Call shallow: cu_gf_sh_run()
 !
@@ -541,10 +599,11 @@ contains
 ! dimesnional variables
                          itf,ktf,its,ite, kts,kte,ipr,tropics)
 
-
+!$acc kernels
           do i=its,itf
            if(xmbs(i).gt.0.)cutens(i)=1.
           enddo
+!$acc end kernels
 !> - Call neg_check() for GF shallow convection
           call neg_check('shallow',ipn,dt,qcheck,outqs,outts,outus,outvs,   &
                                  outqcs,prets,its,ite,kts,kte,itf,ktf,ktops)
@@ -621,12 +680,13 @@ contains
 #endif
               ,k22m          &
               ,jminm,tropics)
-
+!$acc kernels
             do i=its,itf
              do k=kts,ktf
               qcheck(i,k)=qv(i,k) +outqs(i,k)*dt
              enddo
             enddo
+!$acc end kernels
 !> - Call neg_check() for middle GF convection
       call neg_check('mid',ipn,dt,qcheck,outqm,outtm,outum,outvm,   &
                      outqcm,pretm,its,ite,kts,kte,itf,ktf,ktopm)
@@ -704,11 +764,13 @@ contains
               ,jmin,tropics)
           jpr=0
           ipr=0
+!$acc kernels
           do i=its,itf
            do k=kts,ktf
             qcheck(i,k)=qv(i,k) +(outqs(i,k)+outqm(i,k))*dt
            enddo
           enddo
+!$acc end kernels
 !> - Call neg_check() for deep GF convection
        call neg_check('deep',ipn,dt,qcheck,outq,outt,outu,outv,   &
                       outqc,pret,its,ite,kts,kte,itf,ktf,ktop)
@@ -733,6 +795,7 @@ contains
 !                 cutenm(i)=0.
 !              endif   ! pret > 0
 !            enddo
+!$acc kernels
             do i=its,itf
               kcnv(i)=0
               if(pretm(i).gt.0.)then
@@ -757,7 +820,9 @@ contains
                  cuten(i)=0.
               endif   ! pret > 0
             enddo
+!$acc end kernels
 !
+!$acc parallel loop private(kstop,dtime_max,massflx,trcflx_in1,clw_in1,clw_ten1,po_cup)
             do i=its,itf
             massflx(:)=0.
             trcflx_in1(:)=0.
@@ -886,6 +951,8 @@ contains
             if(ktop(i).gt.2 .and.pret(i).gt.0.)dt_mf(i,ktop(i)-1)=ud_mf(i,ktop(i))
             endif
             enddo
+!$acc end parallel
+!$acc kernels
             do i=its,itf
               if(pret(i).gt.0.)then
                  cactiv(i)=1
@@ -895,12 +962,17 @@ contains
                  if(pretm(i).gt.0)raincv(i)=.001*cutenm(i)*pretm(i)*dt
               endif   ! pret > 0
             enddo
+!$acc end kernels
  100    continue
+
+
 !
 ! Scale dry mixing ratios for water wapor and cloud water to specific humidy / moist mixing ratios
 !
+!$acc kernels
         qv_spechum = qv/(1.0_kind_phys+qv)
         cnvw_moist = cnvw/(1.0_kind_phys+qv)
+!$acc end kernels
 !
 ! Diagnostic tendency updates
 !
@@ -911,21 +983,28 @@ contains
             tidx=dtidx(index_of_temperature,index_of_process_scnv)
             qidx=dtidx(100+ntqv,index_of_process_scnv)
             if(uidx>=1) then
+!$acc kernels
               do k=kts,ktf
                 dtend(:,k,uidx) = dtend(:,k,uidx) + cutens(:)*outus(:,k) * dt
               enddo
+!$acc end kernels
             endif
             if(vidx>=1) then
+!$acc kernels
               do k=kts,ktf
                 dtend(:,k,vidx) = dtend(:,k,vidx) + cutens(:)*outvs(:,k) * dt
               enddo
+!$acc end kernels
             endif
             if(tidx>=1) then
+!$acc kernels
               do k=kts,ktf
                 dtend(:,k,tidx) = dtend(:,k,tidx) + cutens(:)*outts(:,k) * dt
               enddo
+!$acc end kernels
             endif
             if(qidx>=1) then
+!$acc kernels
               do k=kts,ktf
                 do i=its,itf
                   tem = cutens(i)*outqs(i,k)* dt
@@ -933,6 +1012,7 @@ contains
                   dtend(i,k,qidx) = dtend(i,k,qidx) + tem
                 enddo
               enddo
+!$acc end kernels
             endif
           endif
           if((ideep.eq.1. .or. imid_gf.eq.1) .and. .not.flag_for_dcnv_generic_tend) then
@@ -940,23 +1020,30 @@ contains
             vidx=dtidx(index_of_y_wind,index_of_process_dcnv)
             tidx=dtidx(index_of_temperature,index_of_process_dcnv)
             if(uidx>=1) then
+!$acc kernels
               do k=kts,ktf
                 dtend(:,k,uidx) = dtend(:,k,uidx) + (cuten*outu(:,k)+cutenm*outum(:,k)) * dt
               enddo
+!$acc end kernels
             endif
             if(vidx>=1) then
+!$acc kernels
               do k=kts,ktf
                 dtend(:,k,vidx) = dtend(:,k,vidx) + (cuten*outv(:,k)+cutenm*outvm(:,k)) * dt
               enddo
+!$acc end kernels
             endif
             if(tidx>=1) then
+!$acc kernels
               do k=kts,ktf
                 dtend(:,k,tidx) = dtend(:,k,tidx) + (cuten*outt(:,k)+cutenm*outtm(:,k)) * dt
               enddo
+!$acc end kernels
             endif
 
             qidx=dtidx(100+ntqv,index_of_process_dcnv)
             if(qidx>=1) then
+!$acc kernels
               do k=kts,ktf
                 do i=its,itf
                   tem = (cuten(i)*outq(i,k) + cutenm(i)*outqm(i,k))* dt
@@ -964,9 +1051,11 @@ contains
                   dtend(i,k,qidx) = dtend(i,k,qidx) + tem
                 enddo
               enddo
+!$acc end kernels
             endif
           endif
           if(allocated(clcw_save)) then
+!$acc parallel loop collapse(2) private(tem_shal,tem_deep,tem,tem1,weight_sum,cliw_both,clcw_both)
             do k=kts,ktf
               do i=its,itf
                 tem_shal = dt*(outqcs(i,k)*cutens(i)+outqcm(i,k)*cutenm(i))
@@ -999,6 +1088,7 @@ contains
                 endif
               enddo
             enddo
+!$acc end parallel
           endif
         endif
    end subroutine cu_gf_driver_run

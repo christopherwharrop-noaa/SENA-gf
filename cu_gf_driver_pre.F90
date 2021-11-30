@@ -36,10 +36,13 @@ module cu_gf_driver_pre
       real(kind_phys),  intent(in)  :: q(:,:)
       real(kind_phys),  intent(in)  :: prevst(:,:)
       real(kind_phys),  intent(in)  :: prevsq(:,:)
+!$acc declare copyin(t,q,prevst,prevsq)
       real(kind_phys),  intent(out) :: forcet(:,:)
       real(kind_phys),  intent(out) :: forceq(:,:)
       integer,          intent(out) :: cactiv(:)
+!$acc declare copyout(forcet,forceq,cactiv)
       real(kind_phys),  intent(in)  :: conv_act(:)
+!$acc declare copyin(conv_act)
       character(len=*), intent(out) :: errmsg
       integer,          intent(out) :: errflg
 
@@ -54,20 +57,28 @@ module cu_gf_driver_pre
       ! are read from the restart files beforehand, same
       ! for conv_act.
       if(flag_init .and. .not.flag_restart) then
+!$acc kernels
         forcet(:,:)=0.0
         forceq(:,:)=0.0
+!$acc end kernels
       else
         dtdyn=3600.0*(fhour)/kdt
         if(dtp > dtdyn) then
+!$acc kernels
           forcet(:,:)=(t(:,:) - prevst(:,:))/dtp
           forceq(:,:)=(q(:,:) - prevsq(:,:))/dtp
+!$acc end kernels
         else
+!$acc kernels
           forcet(:,:)=(t(:,:) - prevst(:,:))/dtdyn
           forceq(:,:)=(q(:,:) - prevsq(:,:))/dtdyn
+!$acc end kernels
         endif
       endif
 
+!$acc kernels
       cactiv(:)=nint(conv_act(:))
+!$acc end kernels
 
    end subroutine cu_gf_driver_pre_run
 

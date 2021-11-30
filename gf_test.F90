@@ -15,7 +15,7 @@ program test_gf
    integer             :: errflg
 
    !---For run
-   integer, parameter :: ix = 100, im = 100, km = 100, ntracer = 10
+   integer, parameter :: ix = 10000, im = 10000, km = 100, ntracer = 10
    logical, parameter :: flag_for_scnv_generic_tend = .TRUE., flag_for_dcnv_generic_tend = .TRUE.
    real (kind=kind_phys), parameter :: g = 1.0 ,cp = 2.0, xlv = 3.0, r_v = 2.3
    logical, parameter :: ldiag3d = .TRUE.
@@ -42,6 +42,9 @@ program test_gf
    real(kind=kind_phys), dimension (:,:), allocatable :: qv_spechum    !inout
    real(kind=kind_phys), dimension(:), allocatable :: garea !in
    integer, dimension(:), allocatable :: cactiv !inout
+
+   integer :: count_rate, count_start, count_end
+   real :: elapsed
 
    !---Allocating arrays
    integer :: alloc_stat
@@ -121,6 +124,41 @@ program test_gf
    dtidx(:,:) = 1
    CALL mt19937_real2d(qci_conv)
 
+!$acc enter data copyin(         &
+!$acc       garea,               &
+!$acc       cactiv,              &
+!$acc       forcet,              &
+!$acc       forceqv_spechum,     &
+!$acc       phil,                &
+!$acc       raincv,              &
+!$acc       qv_spechum,          &
+!$acc       t,                   &
+!$acc       cld1d,               &
+!$acc       us,                  &
+!$acc       vs,                  &
+!$acc       t2di,                &
+!$acc       w,                   &
+!$acc       qv2di_spechum,       &
+!$acc       p2di,                &
+!$acc       psuri,               &
+!$acc       hbot,                &
+!$acc       htop,                &
+!$acc       kcnv,                &
+!$acc       xland,               &
+!$acc       hfx2,                &
+!$acc       qfx2,                &
+!$acc       cliw,                &
+!$acc       clcw,                &
+!$acc       pbl,                 &
+!$acc       ud_mf,               &
+!$acc       dd_mf,               &
+!$acc       dt_mf,               &
+!$acc       cnvw_moist,          &
+!$acc       cnvc,                &
+!$acc       dtend,               &
+!$acc       dtidx,               &
+!$acc       qci_conv)
+
    !--- Print state
    CALL print_state("Input state",   &
        garea,                   &
@@ -164,6 +202,9 @@ program test_gf
                           imfdeepcnv_gf,mpirank, mpiroot, errmsg, errflg)
 
    PRINT*, "Calling run"
+   CALL SYSTEM_CLOCK (count_rate=count_rate)
+   CALL SYSTEM_CLOCK (count=count_start)
+
    CALL cu_gf_driver_run(ntracer,garea,im,km,dt,cactiv,g,cp,xlv,r_v,   &
                forcet,forceqv_spechum,phil,raincv,qv_spechum,t,cld1d,           &
                us,vs,t2di,w,qv2di_spechum,p2di,psuri,                           &
@@ -174,8 +215,49 @@ program test_gf
                index_of_y_wind,index_of_process_scnv,index_of_process_dcnv,     &
                ldiag3d,qci_conv,errmsg,errflg)
 
+   CALL SYSTEM_CLOCK (count=count_end)
+   elapsed = REAL (count_end - count_start) / REAL (count_rate)
+   PRINT*
+   PRINT*, "Finished executing kernel in =", elapsed  
+   PRINT*
+
    PRINT*, "Calling finalize"
    CALL cu_gf_driver_finalize()
+
+!$acc update self(               &
+!$acc       garea,               &
+!$acc       cactiv,              &
+!$acc       forcet,              &
+!$acc       forceqv_spechum,     &
+!$acc       phil,                &
+!$acc       raincv,              &
+!$acc       qv_spechum,          &
+!$acc       t,                   &
+!$acc       cld1d,               &
+!$acc       us,                  &
+!$acc       vs,                  &
+!$acc       t2di,                &
+!$acc       w,                   &
+!$acc       qv2di_spechum,       &
+!$acc       p2di,                &
+!$acc       psuri,               &
+!$acc       hbot,                &
+!$acc       htop,                &
+!$acc       kcnv,                &
+!$acc       xland,               &
+!$acc       hfx2,                &
+!$acc       qfx2,                &
+!$acc       cliw,                &
+!$acc       clcw,                &
+!$acc       pbl,                 &
+!$acc       ud_mf,               &
+!$acc       dd_mf,               &
+!$acc       dt_mf,               &
+!$acc       cnvw_moist,          &
+!$acc       cnvc,                &
+!$acc       dtend,               &
+!$acc       dtidx,               &
+!$acc       qci_conv)
 
    !--- Print state
    CALL print_state("Output state",   &
