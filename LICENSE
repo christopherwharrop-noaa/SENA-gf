@@ -1,0 +1,6 @@
+This project contains derivative work from the Common Community Physics Package project
+(https://github.com/NCAR/ccpp-physics.git). It is a stand alone
+subset of the original specifically licensed for use under the
+Apache License (https://www.apache.org/licenses/LICENSE-2.0).
+The application of the Apache License to this standalone work does not imply
+nor shall it be construed as any change to the original source license.
