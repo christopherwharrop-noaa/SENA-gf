@@ -1,0 +1,87 @@
+name: MacOS Intel
+# triggered events (push, pull_request) for the develop branch
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+
+  macos_Build:
+    name: Mac OS Intel Build
+    # The type of runner that the job will run on
+    runs-on: macos-latest
+
+    env:
+      MACOS_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/irc_nas/17643/m_HPCKit_p_2021.2.0.2903_offline.dmg
+      CC: icc
+      FC: ifort
+      CXX: icpc
+
+    steps:
+      # Prepare for Intel cache restore
+      - name: Prepare for Intel cache restore
+        run: |
+          sudo mkdir -p /opt/intel
+          sudo chown $USER /opt/intel
+      # Cache Intel HPC Toolkit
+      - name: Cache Intel HPC Toolkit
+        id: cache-intel-hpc-toolkit
+        uses: actions/cache@v2
+        with:
+          path: /opt/intel/oneapi
+          key: install-${{ env.MACOS_HPCKIT_URL }}-all
+
+      # Install Intel HPC Toolkit
+      - name: Install Intel HPC Toolkit
+        if: steps.cache-intel-hpc-toolkit.outputs.cache-hit != 'true'
+        run: |
+          curl --output webimage.dmg --url "$MACOS_HPCKIT_URL" --retry 5 --retry-delay 5
+          hdiutil attach webimage.dmg
+          sudo /Volumes/$(basename $MACOS_HPCKIT_URL .dmg)/bootstrapper.app/Contents/MacOS/bootstrapper -s --action install --components=all --eula=accept --continue-with-optional-error=yes --log-dir=.
+          cat /opt/intel/oneapi/logs/installer.install.intel.oneapi.mac.hpckit.*
+          hdiutil detach /Volumes/$(basename "$MACOS_HPCKIT_URL" .dmg) -quiet
+
+      # Check location of installed Intel compilers
+      - name: Check compiler install
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          which icc
+          which ifort
+
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      # Test debug mode 
+      - name: Test gf Debug 
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          cd ref
+          rm -rf build
+          mkdir build
+          cd build
+          export OMP_NUM_THREADS=4
+          export CC=icc
+          export FC=ifort
+          cmake -DCMAKE_BUILD_TYPE=debug ..
+          make
+          ctest --output-on-failure
+          
+      # Test release mode 
+      - name: Test gf Release
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          cd ref
+          rm -rf build
+          mkdir build
+          cd build
+          export OMP_NUM_THREADS=4
+          export CC=icc
+          export FC=ifort
+          cmake -DCMAKE_BUILD_TYPE=release ..
+          make
+          ctest --output-on-failure

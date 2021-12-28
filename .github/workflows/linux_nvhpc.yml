@@ -1,0 +1,84 @@
+name: Linux NVHPC
+# triggered events (push, pull_request) for the develop branch
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash -leo pipefail {0}
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+
+  ubuntu_build:
+    name: Ubuntu NVHPC Build
+    # Run on ubuntu-latest
+    runs-on: ubuntu-latest
+
+    env:
+      NVIDIA_HPC_SDK_URL1: https://developer.download.nvidia.com/hpc-sdk/21.9/nvhpc-21-9_21.9_amd64.deb
+      NVIDIA_HPC_SDK_URL2: https://developer.download.nvidia.com/hpc-sdk/21.9/nvhpc-2021_21.9_amd64.deb
+
+    steps:
+
+      # Install Lmod
+      - name: Install Lmod
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install lmod
+          echo "source /usr/share/lmod/lmod/init/bash" >> ~/.bash_profile
+          source /usr/share/lmod/lmod/init/bash
+          module list
+
+      # Install NVIDIA HPC SDK
+      - name: Install NVIDIA HPC SDK
+        run: |
+          wget "$NVIDIA_HPC_SDK_URL1" "$NVIDIA_HPC_SDK_URL2"
+          sudo apt-get install ./nvhpc-21-9_21.9_amd64.deb ./nvhpc-2021_21.9_amd64.deb
+
+      # Check location of installed NVHPC compilers
+      - name: Check compiler install
+        run: |
+          source /usr/share/lmod/lmod/init/bash
+          module use /opt/nvidia/hpc_sdk/modulefiles
+          module load nvhpc
+          which nvc
+          which nvfortran
+
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Test debug mode
+      - name: Build gf debug
+        run: |
+          source /usr/share/lmod/lmod/init/bash
+          module use /opt/nvidia/hpc_sdk/modulefiles
+          module load nvhpc
+          cd ref
+          rm -rf build
+          mkdir build
+          cd build
+          export OMP_NUM_THREADS=4
+          cmake -DCMAKE_BUILD_TYPE=debug ..
+          make
+          ctest --output-on-failure
+
+      # Test release mode
+      - name: Build gf release
+        run: |
+          source /usr/share/lmod/lmod/init/bash
+          module use /opt/nvidia/hpc_sdk/modulefiles
+          module load nvhpc
+          cd ref
+          rm -rf build
+          mkdir build
+          cd build
+          export OMP_NUM_THREADS=4
+          cmake -DCMAKE_BUILD_TYPE=release ..
+          make
+          ctest --output-on-failure

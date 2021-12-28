@@ -1,0 +1,53 @@
+name: Linux GPU NVHPC
+# triggered events (push, pull_request) for the develop branch
+on:
+  pull_request:
+    branches: [ develop ]
+    types: [ labeled ]
+  workflow_dispatch:
+
+#defaults:
+#  run:
+#    shell: bash -leo pipefail {0}
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+
+  GPU_build:
+    if: ${{ github.event.label.name == 'GPU_Test' }}
+
+    name: GPU Build
+    # Run on self-hosted
+    runs-on: self-hosted
+
+    steps:
+
+      # Load NVHPC module
+      - name: Load NVHPC Module
+        run: |
+          pwd
+          ls -al
+          echo $SHELL
+          module use /opt/nvidia/hpc_sdk/modulefiles
+          module load nvhpc
+          which nvc
+          which nvfortran
+
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Test release mode
+      - name: Build gf release
+        run: |
+          source /usr/share/lmod/lmod/init/bash
+          module use /opt/nvidia/hpc_sdk/modulefiles
+          module load nvhpc
+          cd ref
+          rm -rf build
+          mkdir build
+          cd build
+          export OMP_NUM_THREADS=4
+          cmake -DCMAKE_BUILD_TYPE=release -DENABLE_GPU=on ..
+          make
+          ctest --output-on-failure -R gpu_kernel

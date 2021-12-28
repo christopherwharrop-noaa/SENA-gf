@@ -1,0 +1,53 @@
+name: MacOS GNU
+# triggered events (push, pull_request) for the develop branch
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+
+  macos_Build:
+    name: Mac OS GNU Build
+    # The type of runner that the job will run on
+    runs-on: macos-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      # Unlink gcc
+      - name: Unlink gcc
+        run: brew unlink gcc@9
+
+      # Test debug mode 
+      - name: Test gf Debug 
+        run: |
+          cd ref
+          rm -rf build
+          mkdir build
+          cd build
+          export OMP_NUM_THREADS=4
+          export CC=gcc-10
+          export FC=gfortran-10          
+          cmake -DCMAKE_BUILD_TYPE=debug ..
+          make
+          ctest --output-on-failure
+          
+      # Test release mode 
+      - name: Test gf Release
+        run: |
+          cd ref
+          rm -rf build
+          mkdir build
+          cd build
+          export OMP_NUM_THREADS=4
+          export CC=gcc-10
+          export FC=gfortran-10           
+          cmake -DCMAKE_BUILD_TYPE=release ..
+          make
+          ctest --output-on-failure
