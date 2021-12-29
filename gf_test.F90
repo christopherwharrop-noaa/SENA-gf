@@ -98,10 +98,12 @@ program test_gf
    CALL mt19937_real1d(raincv)
    CALL mt19937_real2d(qv_spechum)
    CALL mt19937_real2d(t)
+   t(:,:) = t(:,:) + 510
    CALL mt19937_real1d(cld1d)
    CALL mt19937_real2d(us)
    CALL mt19937_real2d(vs)
    CALL mt19937_real2d(t2di)
+   t2di(:,:) = t2di(:,:) + 500
    CALL mt19937_real2d(w)
    CALL mt19937_real2d(qv2di_spechum)
    CALL mt19937_real2d(p2di)
