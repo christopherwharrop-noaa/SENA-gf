@@ -72,7 +72,7 @@ contains
 !
   use cu_gf_deep,only:cup_env,cup_env_clev,get_cloud_bc,cup_minimi,  &
                       get_inversion_layers,rates_up_pdf,get_cloud_bc,       &
-                      cup_up_aa0,cup_kbcon,get_lateral_massflux, my_maxloc1d
+                      cup_up_aa0,cup_kbcon,get_lateral_massflux
      implicit none
      integer                                                                &
         ,intent (in   )                   ::                                &
@@ -400,7 +400,7 @@ contains
        do 36 i=its,itf
          if(kpbl(i).gt.3)cap_max(i)=po_cup(i,kpbl(i))
          if(ierr(i) == 0)then
-          k22(i)=my_maxloc1d(heo_cup(i,2:kbmax(i)),kte,1)
+          k22(i)=maxloc(heo_cup(i,2:kbmax(i)),1)
           k22(i)=max(2,k22(i))
           if(k22(i).gt.kbmax(i))then
            ierr(i)=2
@@ -514,7 +514,7 @@ contains
              enddo
            endif
 !$acc loop seq
-           do k=my_maxloc1d(zuo(i,:),kte,1),ktop(i)
+           do k=maxloc(zuo(i,:),1),ktop(i)
              if(zuo(i,k).lt.1.e-6)then
                ktop(i)=k-1
                exit
@@ -594,7 +594,7 @@ contains
           dz=zo_cup(i,k+1)-zo_cup(i,k)
           if(k.ge.kbcon(i))dbyt(i,k)=dbyt(i,k-1)+dbyo(i,k)*dz
          enddo
-       ki=my_maxloc1d(dbyt(i,:),kte,1)
+       ki=maxloc(dbyt(i,:),1)
        if(ktop(i).gt.ki+1)then
          ktop(i)=ki+1
          zuo(i,ktop(i)+1:ktf)=0.

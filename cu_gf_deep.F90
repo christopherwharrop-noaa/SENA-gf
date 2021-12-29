@@ -47,7 +47,6 @@ module cu_gf_deep
 
 contains
 
-
    integer function my_maxloc1d(A,N,dir)
 !$acc routine vector
       implicit none
@@ -68,27 +67,6 @@ contains
       end do
       return
    end function my_maxloc1d
-
-   integer function my_minloc1d(A,N,dir)
-!$acc routine vector
-      implicit none
-      real(kind_phys), intent(in) :: A(:)
-      integer, intent(in) :: N,dir
-
-      real(kind_phys) :: iminval
-      integer :: i
-
-      iminval = MINVAL(A)
-      my_minloc1d = 1
-!$acc loop
-      do i = 1, N
-         if ( A(i) == iminval ) then
-            my_minloc1d = i
-            return
-         endif
-      end do
-      return
-   end function my_minloc1d
 
 !>\ingroup cu_gf_deep_group
 !> \section general_gf_deep GF Deep Convection General Algorithm
@@ -748,8 +726,7 @@ contains
 !$acc parallel loop
        do 36 i=its,itf
          if(ierr(i).eq.0)then
-            ! k22(i)=MAXLOC(heo_cup(i,start_k22:kbmax(i)+2),1)+start_k22-1
-            k22(i)=my_maxloc1d(heo_cup(i,start_k22:kbmax(i)+2),kbmax(i)+2-start_k22+1,1)+start_k22-1
+            k22(i)=maxloc(heo_cup(i,start_k22:kbmax(i)+2),1)+start_k22-1
             if(k22(i).ge.kbmax(i))then
              ierr(i)=2
 #ifndef _OPENACC
@@ -981,8 +958,8 @@ contains
           dbyo(i,k)=hco(i,k)-heso_cup(i,k)
        enddo
        ! for now no overshooting (only very little)
-       kk=my_maxloc1d(dbyt(i,:),kte,1)
-       ki=my_maxloc1d(zuo(i,:),kte,1)
+       kk=maxloc(dbyt(i,:),1)
+       ki=maxloc(zuo(i,:),1)
 !$acc loop seq
        do k=ktop(i)-1,kbcon(i),-1
            if(dbyo(i,k).gt.0.)then
@@ -1169,8 +1146,8 @@ contains
 
        enddo
 ! for now no overshooting (only very little)
-       ! kk=my_maxloc1d(dbyt(i,:),kte,1)
-       ! ki=my_maxloc1d(zuo(i,:),kte,1)
+       ! kk=maxloc(dbyt(i,:),1)
+       ! ki=maxloc(zuo(i,:),1)
 !       if(ipr .eq.1)write(16,*)'cupgf2',kk,ki
 !       if(kk.lt.ki+3)then
 !         ierr(i)=423
@@ -1352,7 +1329,7 @@ contains
           endif
         endif
 
-        itemp = my_maxloc1d(zdo(i,:),kte,1)
+        itemp = maxloc(zdo(i,:),1)
         do ki=jmin(i)  , itemp,-1
           !=> from jmin to maximum value zd -> change entrainment
           dzo=zo_cup(i,ki+1)-zo_cup(i,ki)
@@ -4707,10 +4684,10 @@ endif
            if(k >= kbcon(i)) dby(k)=dby(k-1)+(hcot(i,k)-heso_cup(i,k))*dz
            if(k >= kbcon(i)) dbm(k)=hcot(i,k)-heso_cup(i,k)
         enddo
-        ktopdby(i)=my_maxloc1d(dby(:),kte,1)
-        kklev=my_maxloc1d(dbm(:),kte,1)
+        ktopdby(i)=maxloc(dby(:),1)
+        kklev=maxloc(dbm(:),1)
 !$acc loop seq
-        do k=my_maxloc1d(dby(:),kte,1)+1,ktf-2
+        do k=maxloc(dby(:),1)+1,ktf-2
           if(dby(k).lt.dbythresh*maxval(dby))then
               kfinalzu=k  - 1
               ktop(i)=kfinalzu
@@ -5192,14 +5169,14 @@ endif
            dp=p_cup(i,k_inv_layers(i,k))-p_cup(i,kstart(i))
            sec_deriv(k)=abs(dp)-l_shal
          enddo
-         k800=my_minloc1d(abs(sec_deriv),kte,1)
+         k800=minloc(abs(sec_deriv),1)
         sec_deriv(:)=1.e9
 
          do k=1,maxloc(k_inv_layers(i,:),1) !kts,kte !kstart(i),kend(i) !kts,kte
            dp=p_cup(i,k_inv_layers(i,k))-p_cup(i,kstart(i))
            sec_deriv(k)=abs(dp)-l_mid
          enddo
-         k550=my_minloc1d(abs(sec_deriv),kte,1)
+         k550=minloc(abs(sec_deriv),1)
          !-save k800 and k550 in k_inv_layers array
          shal=1
          mid=2
@@ -5346,7 +5323,7 @@ endif
        if(ierr(i).eq.0)then
 
 !$acc loop private(dz)
-          do k=max(2,k22(i)+1),my_maxloc1d(zuo(i,:),kte,1)
+          do k=max(2,k22(i)+1),maxloc(zuo(i,:),1)
            !=> below maximum value zu -> change entrainment
            dz=zo_cup(i,k)-zo_cup(i,k-1)
         
@@ -5360,7 +5337,7 @@ endif
            if(zuo(i,k-1).gt.0.)entr_rate_2d(i,k-1)=(up_massentro(i,k-1))/(dz*zuo(i,k-1))
          enddo
 !$acc loop private(dz)
-         do k=my_maxloc1d(zuo(i,:),kte,1)+1,ktop(i)
+         do k=maxloc(zuo(i,:),1)+1,ktop(i)
            !=> above maximum value zu -> change detrainment
            dz=zo_cup(i,k)-zo_cup(i,k-1)
            up_massentro(i,k-1)=entr_rate_2d(i,k-1)*dz*zuo(i,k-1)
@@ -5663,7 +5640,7 @@ endif
 
        enddo
        if(find_ktop_option==0) then 
-        do k=my_maxloc1d(dby(:),kte,1),ktf-2
+        do k=maxloc(dby(:),1),ktf-2
           !~ print*,'hco30=',k,dby(k),dbythresh*maxval(dby)
       
           if(dby(k).lt.dbythresh*maxval(dby))then
