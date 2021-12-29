@@ -95,6 +95,11 @@ module mt19937
 
   integer, parameter :: r8 = real64
   integer, parameter :: i8 = int64
+#ifndef SINGLE_PREC
+  integer, parameter :: kph = real64
+#else
+  integer, parameter :: kph = real32
+#endif
 
   integer(i8), parameter :: nn       = 312_i8
   integer(i8), parameter :: mm       = 156_i8
@@ -257,7 +262,7 @@ contains
   subroutine mt19937_real1d(data)
     implicit none
  
-    real(r8), intent(out) :: data(:)
+    real(kph), intent(out) :: data(:)
 
     integer :: l(1), u(1)
     integer :: i
@@ -278,7 +283,7 @@ contains
   subroutine mt19937_real2d(data)
     implicit none
  
-    real(r8), intent(out) :: data(:,:)
+    real(kph), intent(out) :: data(:,:)
 
     integer :: l(2), u(2)
     integer :: i, j
@@ -301,7 +306,7 @@ contains
   subroutine mt19937_real3d(data)
     implicit none
  
-    real(r8), intent(out) :: data(:,:,:)
+    real(kph), intent(out) :: data(:,:,:)
 
     integer :: l(3), u(3)
     integer :: i, j, k
@@ -326,7 +331,7 @@ contains
   subroutine mt19937_real4d(data)
     implicit none
  
-    real(r8), intent(out) :: data(:,:,:,:)
+    real(kph), intent(out) :: data(:,:,:,:)
 
     integer :: l(4), u(4)
     integer :: i, j, k, m
