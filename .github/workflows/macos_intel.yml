@@ -69,6 +69,7 @@ jobs:
           export FC=ifort
           cmake -DCMAKE_BUILD_TYPE=debug ..
           make
+          ulimit -s hard
           ctest --output-on-failure
           
       # Test release mode 
@@ -84,4 +85,5 @@ jobs:
           export FC=ifort
           cmake -DCMAKE_BUILD_TYPE=release ..
           make
+          ulimit -s hard
           ctest --output-on-failure
