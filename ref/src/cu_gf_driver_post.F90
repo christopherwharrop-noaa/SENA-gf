@@ -37,7 +37,7 @@ module cu_gf_driver_post
       real(kind_phys),  intent(out) :: conv_act(:)
       real(kind_phys),  intent(out) :: conv_act_m(:)
       character(len=*), intent(out) :: errmsg
-!$acc declare copyin(t,q,cactiv) copyout(prevst,prevsq,conv_act)
+!$acc declare copyin(t,q,cactiv,cactiv_m) copyout(prevst,prevsq,conv_act,conv_act_m)
       integer, intent(out)          :: errflg
 
       ! Local variables

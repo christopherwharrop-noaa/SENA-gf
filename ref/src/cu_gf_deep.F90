@@ -170,7 +170,7 @@ contains
      real(kind=kind_phys),    dimension (its:ite)                                      &
         ,intent (inout  )                   ::                         &
         pre,xmb_out
-!$acc declare copy(cnvwt,outu,outv,outt,outq,outqc,cupclw,pre,xmb_out)
+!$acc declare copy(cnvwt,outu,outv,outt,outq,outqc,cupclw,frh_out,pre,xmb_out)
      real(kind=kind_phys),    dimension (its:ite)                                      &
         ,intent (in  )                   ::                            &
         hfx,qfx,xmbm_in,xmbs_in
@@ -203,11 +203,11 @@ contains
      real(kind=kind_phys), dimension (its:ite)                                         &
         ,intent (in   )                   ::                           &
         dx,z1,psur,xland
-!$acc declare copyin(dx,ccn,z1,psur,xland)
+!$acc declare copyin(dx,z1,psur,xland)
      real(kind=kind_phys), dimension (its:ite)                                         &
         ,intent (inout   )                ::                           &
         mconv,ccn
-!$acc declare copy(mconv)
+!$acc declare copy(mconv,ccn)
 
        
        real(kind=kind_phys)                                                            &
@@ -341,7 +341,7 @@ contains
        ktopdby,kbconx,ierr2,ierr3,kbmax
 !$acc declare create(edt,edto,edtm,aa1,aa0,xaa0,hkb,                     &
 !$acc       hkbo,xhkb,                                                   &
-!$acc       xmb,pwavo,                                                   &
+!$acc       xmb,pwavo,ccnloss,                                           &
 !$acc       pwevo,bu,bud,cap_max,                                        &
 !$acc       cap_max_increment,closure_n,psum,psumh,sig,sigd,             &
 !$acc       axx,edtmax,edtmin,entr_rate,                                 &
@@ -398,7 +398,7 @@ contains
      real(kind=kind_phys),    dimension (its:ite,kts:kte) :: dtempdz
      integer, dimension (its:ite,kts:kte) ::  k_inv_layers 
      real(kind=kind_phys),    dimension (its:ite) :: c0    ! HCB
-!$acc declare create(pmin_lev,start_level,ktopkeep,dtempdz,k_inv_layers)
+!$acc declare create(pmin_lev,start_level,ktopkeep,dtempdz,k_inv_layers,c0)
  
 ! rainevap from sas
      real(kind=kind_phys) zuh2(40)
@@ -457,6 +457,7 @@ contains
 !
 !---------------------------------------------------- ! HCB
 ! Set cloud water to rain water conversion rate (c0)
+!$acc kernels
       c0(:)=0.004
       do i=its,itf
          xland1(i)=int(xland(i)+.0001) ! 1.
@@ -468,6 +469,7 @@ contains
            c0(i)=0.002
          endif
       enddo
+!$acc end kernels
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !$acc kernels
@@ -532,6 +534,7 @@ contains
 !$acc end kernels
       endif
       if(do_capsuppress == 1) then
+!$acc kernels
          do i=its,itf
             cap_max(i)=cap_maxs
             if (abs(cap_suppress_j(i) - 1.0 ) < 0.1 ) then
@@ -540,6 +543,7 @@ contains
                cap_max(i)=10.0
             endif
          enddo
+!$acc end kernels
       endif
 !
 !--- initial entrainment rate (these may be changed later on in the
@@ -969,8 +973,8 @@ contains
           dbyo(i,k)=hco(i,k)-heso_cup(i,k)
        enddo
        ! for now no overshooting (only very little)
-       kk=maxloc(dbyt(i,:),1)
-       ki=maxloc(zuo(i,:),1)
+       !kk=maxloc(dbyt(i,:),1)
+       !ki=maxloc(zuo(i,:),1)
 !$acc loop seq
        do k=ktop(i)-1,kbcon(i),-1
            if(dbyo(i,k).gt.0.)then
@@ -2260,6 +2264,7 @@ contains
 !$acc end kernels
       endif
 
+!$acc kernels
       do i=its,itf
          if(ierr(i).eq.0) then
             if(aeroevap.gt.1)then
@@ -2269,6 +2274,8 @@ contains
             endif
          endif
       enddo
+!$acc end kernels
+
 !
 ! since kinetic energy is being dissipated, add heating accordingly (from ecmwf)
 !
@@ -2617,8 +2624,8 @@ contains
      integer, dimension (its:ite)                            &
         ,intent (inout)                   ::                 &
         ierr
-!$acc declare copyin(rho,us,vs,z,p,pw,pwav,pwev,ccn,psum2,psumh,edtmax,edtmin,ktop,kbcon)
-!$acc declare copyout(edtc,edt) copy(ierr)
+!$acc declare copyin(rho,us,vs,z,p,pw,pwav,pwev,psum2,psumh,edtmax,edtmin,ktop,kbcon)
+!$acc declare copyout(edtc,edt) copy(ccn,ierr)
 !
 !  local variables in this routine
 !
@@ -4303,7 +4310,7 @@ endif
      integer, dimension (its:ite)                                 &
         ,intent (in   )                   ::                      &
         kbcon,ktop,k22,xland1
-!$acc declare copyin(p_cup,rho,q,zu,gamma_cup,qe_cup,up_massentr,up_massdetr,dby,qes_cup,z_cup,zqexec,kbcon,ktop,k22,xland1)
+!$acc declare copyin(p_cup,rho,q,zu,gamma_cup,qe_cup,up_massentr,up_massdetr,dby,qes_cup,z_cup,zqexec,c0,kbcon,ktop,k22,xland1)
      real(kind=kind_phys),    intent (in  ) ::                    & ! HCB
         ccnclean
 !
@@ -4332,9 +4339,10 @@ endif
      real(kind=kind_phys),    dimension (its:ite,kts:kte)                          &
         ,intent (inout)                   ::                       &
         c1d
+!$acc declare copy(c1d)
      real(kind=kind_phys),    dimension (its:ite,kts:kte) ::                       &
         qch,qrcb,pwh,clw_allh,c1d_b,t
-!$acc declare create(qch,qrcb,pwh,clw_allh,c1d,t)
+!$acc declare create(qch,qrcb,pwh,clw_allh,c1d_b,t)
      real(kind=kind_phys),    dimension (its:ite)         ::                       &
         pwavh
 !$acc declare create(pwavh)
@@ -4353,7 +4361,7 @@ endif
      integer                              ::                       &
         iprop,iall,i,k
      integer :: start_level(its:ite),kklev(its:ite)
-!$acc declare create(start_level)
+!$acc declare create(start_level,kklev)
      real(kind=kind_phys)                                 ::                       &
         prop_ave,qrcb_h,bdsp,dp,rhoc,qrch,qaver,clwdet,                   &
         dz,berryc0,q1,berryc
@@ -4364,6 +4372,10 @@ endif
 !$acc declare create(prop_b)
 !
      real(kind=kind_phys), parameter:: zero = 0
+     logical :: is_mid, is_deep
+
+        is_mid = (name == 'mid')
+        is_deep = (name == 'deep')
 
 !$acc kernels
         prop_b(kts:kte)=0
@@ -4406,7 +4418,7 @@ endif
       do i=its,itf
       if(ierr(i).eq.0)then
          start_level=k22(i)
-         call get_cloud_bc(kte,qe_cup (i,1:kte),qaver,k22(i))
+         call get_cloud_bc(kte,qe_cup (i,1:kte),qaver,k22(i),zero)
          qaver = qaver 
          k=start_level(i)
          qc (i,k)= qaver 
@@ -4457,15 +4469,15 @@ endif
 !
 !now do the rest
 !
-!$acc loop seq
             kklev(i)=maxloc(zu(i,:),1)
+!$acc loop seq
             do k=kbcon(i)+1,ktop(i)
                if(t(i,k) > 273.16) then
                   c0t = c0(i)
                else
                   c0t = c0(i) * exp(c0_iceconv * (t(i,k) - 273.16))
                endif
-               if(name == "mid")c0t=0.004
+               if(is_mid)c0t=0.004
 
                denom=zu(i,k-1)-.5*up_massdetr(i,k-1)+up_massentr(i,k-1)
                if(denom.lt.1.e-16)then
@@ -4507,7 +4519,7 @@ endif
                qrc(i,k)=max(0.,(qc(i,k)-qrch)) ! /(1.+c0(i)*dz*zu(i,k))
                clw_allh(i,k)=max(0.,qch(i,k)-qrch) 
                qrcb(i,k)=max(0.,(qch(i,k)-qrch)) ! /(1.+c0(i)*dz*zu(i,k))
-               if(name == "deep" )then
+               if(is_deep)then
                  clwdet=0.1 !0.02                 ! 05/11/2021
                  if(k.lt.kklev(i)) clwdet=0.    ! 05/05/2021
                else
@@ -4644,8 +4656,8 @@ endif
 !$acc routine seq
     implicit none
     integer, intent(in)     :: mzp,k22
-    real(kind=kind_phys)   , intent(in)     :: array(mzp)
-    real(kind=kind_phys)   , optional , intent(in)  :: add
+    real(kind=kind_phys)   , dimension(:), intent(in)     :: array
+    real(kind=kind_phys)   , intent(in)  :: add
     real(kind=kind_phys)   , intent(out)    :: x_aver
     integer :: i,local_order_aver,order_aver
 
@@ -4662,7 +4674,7 @@ endif
       x_aver = x_aver + array(k22-i+1)
     enddo
       x_aver = x_aver/float(local_order_aver)
-    if(present(add)) x_aver = x_aver + add
+    x_aver = x_aver + add
 
  end subroutine get_cloud_bc
  !========================================================================================
@@ -4825,22 +4837,18 @@ endif
 ! very simple lookup tables
 !
         real(kind=kind_phys), dimension(30) :: alpha,g_alpha
-        data   (alpha(k),k=4,27)/3.699999,                               &
+        data   (alpha(k),k=1,30)/3.699999,3.699999,3.699999,3.699999,&
                       3.024999,2.559999,2.249999,2.028571,1.862500, &
                       1.733333,1.630000,1.545454,1.475000,1.415385, &
                       1.364286,1.320000,1.281250,1.247059,1.216667, &
                       1.189474,1.165000,1.142857,1.122727,1.104348, &
-                      1.087500,1.075000,1.075000/
-        data (g_alpha(k),k=4,27)/4.170645,                               &
+                      1.087500,1.075000,1.075000,1.075000,1.075000,1.075000/
+        data (g_alpha(k),k=1,30)/4.170645,4.170645,4.170645,4.170645,    &
                       2.046925 , 1.387837, 1.133003, 1.012418,0.9494680, &
                       0.9153771,0.8972442,0.8885444,0.8856795,0.8865333, &
                       0.8897996,0.8946404,0.9005030,0.9070138,0.9139161, &
                       0.9210315,0.9282347,0.9354376,0.9425780,0.9496124, &
-                      0.9565111,0.9619183,0.9619183/
-        alpha(1:3)=alpha(4)
-        g_alpha(1:3)=g_alpha(4)
-        alpha(28:30)=alpha(27)
-        g_alpha(28:30)=g_alpha(27)
+                      0.9565111,0.9619183,0.9619183,0.9619183,0.9619183,0.9619183/
 
  !- kb cannot be at 1st level
 

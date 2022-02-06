@@ -139,6 +139,7 @@ contains
    real(kind=kind_phys), intent(in) :: fhour, fh_dfi_radar(:)
    integer, intent(in) :: num_dfi_radar, ix_dfi_radar(:)
    real(kind=kind_phys), intent(in) :: cap_suppress(:,:)
+!$acc declare copyin(fh_dfi_radar,ix_dfi_radar,cap_suppress)
 
    integer, dimension (:), intent(out) :: hbot,htop,kcnv
    integer, dimension (:), intent(in)  :: xland
@@ -158,7 +159,7 @@ contains
    real(kind=kind_phys), dimension (:,:), intent(in) :: qv2di_spechum
    real(kind=kind_phys), dimension (:,:), intent(inout) :: qv_spechum
    real(kind=kind_phys), dimension (:), intent(inout) :: aod_gf
-!$acc declare copyin(qv2di_spechum) copy(qv_spechum)
+!$acc declare copyin(qv2di_spechum) copy(qv_spechum,aod_gf)
    ! Local water vapor mixing ratios and cloud water mixing ratios
    real(kind=kind_phys), dimension (im,km) :: qv2di, qv, forceqv, cnvw
 !$acc declare create(qv2di, qv, forceqv, cnvw)
@@ -169,7 +170,7 @@ contains
 
    integer, intent(in   ) :: imfshalcnv
    integer, dimension(:), intent(inout) :: cactiv,cactiv_m
-!$acc declare copy(cactiv)
+!$acc declare copy(cactiv,cactiv_m)
 
    character(len=*), intent(out) :: errmsg
    integer,          intent(out) :: errflg
@@ -199,7 +200,8 @@ contains
    integer, dimension (im) :: k22s,kbcons,ktops,k22,jmin,jminm
    integer, dimension (im) :: kbconm,ktopm,k22m
 !$acc declare create(k22_shallow,kbcon_shallow,ktop_shallow,rand_mom,rand_vmas,        &
-!$acc                rand_clos,gdc,gdc2,ht,dx,outt,outq,outqc,phh,subm,cupclw,cupclws, &
+!$acc                rand_clos,gdc,gdc2,ht,ccn_gf,ccn_m,dx,frhm,frhd, &
+!$acc                outt,outq,outqc,phh,subm,cupclw,cupclws, &
 !$acc                dhdt,zu,zus,zd,phf,zum,zdm,outum,outvm,   &
 !$acc                outts,outqs,outqcs,outu,outv,outus,outvs, &
 !$acc                outtm,outqm,outqcm,submm,cupclwm,         &
@@ -227,8 +229,8 @@ contains
    real(kind=kind_phys), dimension (im)    :: z1,psur,cuten,cutens,cutenm
    real(kind=kind_phys), dimension (im)    :: umean,vmean,pmean
    real(kind=kind_phys), dimension (im)    :: xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv
-!$acc declare create(qcheck,zo,t2d,q2d,po,p2d,rhoi,tn,qo,tshall,qshall,dz8w,omeg, &
-!$acc                ccn,z1,psur,cuten,cutens,cutenm,umean,vmean,pmean,           &
+!$acc declare create(qcheck,zo,t2d,q2d,po,p2d,rhoi,clw_ten,tn,qo,tshall,qshall,dz8w,omeg, &
+!$acc                z1,psur,cuten,cutens,cutenm,umean,vmean,pmean,           &
 !$acc                xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv)
 
    integer :: i,j,k,icldck,ipr,jpr,jpr_deep,ipr_deep,uidx,vidx,tidx,qidx
@@ -254,7 +256,9 @@ contains
    integer :: cliw_deep_idx, clcw_deep_idx, cliw_shal_idx, clcw_shal_idx
 
    real(kind=kind_phys) :: cap_suppress_j(im)
+!$acc declare create(cap_suppress_j)
    integer :: itime, do_cap_suppress_here
+   logical :: exit_func
 
   !parameter (tf=243.16, tcr=270.16, tcrf=1.0/(tcr-tf)) ! FV3 original
   !parameter (tf=263.16, tcr=273.16, tcrf=1.0/(tcr-tf))
@@ -265,19 +269,25 @@ contains
      errflg = 0
 
      if(do_cap_suppress) then
+!$acc serial
        do itime=1,num_dfi_radar
          if(ix_dfi_radar(itime)<1) cycle
          if(fhour<fh_dfi_radar(itime)) cycle
          if(fhour>=fh_dfi_radar(itime+1)) cycle
          exit
        enddo
+!$acc end serial
      endif
      if(do_cap_suppress .and. itime<=num_dfi_radar) then
         do_cap_suppress_here = 1
-        cap_suppress_j = cap_suppress(:,itime)
+!$acc kernels
+        cap_suppress_j(:) = cap_suppress(:,itime)
+!$acc end kernels
      else
         do_cap_suppress_here = 0
-        cap_suppress_j = 0
+!$acc kernels
+        cap_suppress_j(:) = 0
+!$acc end kernels
      endif
 
      if(ldiag3d) then
@@ -873,7 +883,7 @@ contains
             enddo
 !$acc end kernels
 !
-!$acc parallel loop private(kstop,dtime_max,massflx,trcflx_in1,clw_in1,clw_ten1,po_cup)
+!$acc parallel loop private(kstop,dtime_max,massflx,trcflx_in1,clw_in1,po_cup)
             do i=its,itf
             massflx(:)=0.
             trcflx_in1(:)=0.

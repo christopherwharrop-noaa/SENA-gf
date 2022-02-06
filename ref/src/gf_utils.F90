@@ -17,6 +17,7 @@ CONTAINS
   SUBROUTINE print_state(msg,   &
        garea,                   &
        cactiv,                  &
+       cactiv_m,                &
        forcet,                  &
        forceqv_spechum,         &
        phil,                    &
@@ -37,6 +38,7 @@ CONTAINS
        xland,                   &
        hfx2,                    &
        qfx2,                    &
+       aod_gf,                  &
        cliw,                    &
        clcw,                    &
        pbl,                     &
@@ -47,13 +49,16 @@ CONTAINS
        cnvc,                    &
        dtend,                   &
        dtidx,                   &
-       qci_conv                 &
+       qci_conv,                &
+       ix_dfi_radar,            &
+       fh_dfi_radar,            &
+       cap_suppress             &
        )
 
     CHARACTER(LEN=*) :: msg
 
     REAL(kind_phys), INTENT(IN) ::       garea(:)
-    INTEGER, INTENT(IN) :: cactiv(:)
+    INTEGER, INTENT(IN) :: cactiv(:), cactiv_m(:)
     REAL(kind_phys), INTENT(IN) :: forcet(:, :)
     REAL(kind_phys), INTENT(IN) :: forceqv_spechum(:, :)
     REAL(kind_phys), INTENT(IN) :: phil(:, :)
@@ -74,6 +79,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: xland(:)
     REAL(kind_phys), INTENT(IN) :: hfx2(:)
     REAL(kind_phys), INTENT(IN) :: qfx2(:)
+    REAL(kind_phys), INTENT(IN) :: aod_gf(:)
     REAL(kind_phys), INTENT(IN) :: cliw(:, :)
     REAL(kind_phys), INTENT(IN) :: clcw(:, :)
     REAL(kind_phys), INTENT(IN) :: pbl(:)
@@ -85,6 +91,9 @@ CONTAINS
     REAL(kind_phys), INTENT(IN) :: dtend(:, :, :)
     INTEGER, INTENT(IN) :: dtidx(:, :)
     REAL(kind_phys), INTENT(IN) :: qci_conv(:, :)
+    INTEGER, INTENT(IN) :: ix_dfi_radar(:)
+    REAL(kind_phys), INTENT(IN) :: fh_dfi_radar(:)
+    REAL(kind_phys), INTENT(IN) :: cap_suppress(:, :)
 
     WRITE(*,'(A4)') "TEST"
     WRITE(*,'(A5,A117)') "TEST ", REPEAT("=",117)
@@ -95,6 +104,7 @@ CONTAINS
 
     CALL print_1d_variable("garea", garea)
     CALL print_1d_variable_int("cactiv", cactiv)
+    CALL print_1d_variable_int("cactiv_m", cactiv_m)
     CALL print_2d_variable("forcet", forcet)
     CALL print_2d_variable("forceqv_spechum", forceqv_spechum)
     CALL print_2d_variable("phil", phil)
@@ -115,6 +125,7 @@ CONTAINS
     CALL print_1d_variable_int("xland", xland)
     CALL print_1d_variable("hfx2", hfx2)
     CALL print_1d_variable("qfx2", qfx2)
+    CALL print_1d_variable("aod_gf", aod_gf)
     CALL print_2d_variable("cliw", cliw)
     CALL print_2d_variable("clcw", clcw)
     CALL print_1d_variable("pbl", pbl)
@@ -126,6 +137,9 @@ CONTAINS
     CALL print_3d_variable("dtend", dtend)
     CALL print_2d_variable_int("dtidx", dtidx)
     CALL print_2d_variable("qci_conv", qci_conv)
+    CALL print_1d_variable_int("ix_dfi_radar", ix_dfi_radar)
+    CALL print_1d_variable("fh_dfi_radar", fh_dfi_radar)
+    CALL print_2d_variable("cap_suppress", cap_suppress)
 
     WRITE(*,'(A5,A117)') "TEST ", REPEAT("-",117)
     WRITE(*,'(A4)') "TEST"
