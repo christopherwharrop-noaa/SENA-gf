@@ -151,7 +151,7 @@ contains
 
      integer, intent(in) :: do_capsuppress
      real(kind=kind_phys), intent(in), dimension(:) :: cap_suppress_j
-!$acc declare create(cap_suppress_j)
+!$acc declare copyin(cap_suppress_j)
   !
   ! 
   !
