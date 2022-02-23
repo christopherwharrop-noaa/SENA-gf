@@ -13,6 +13,7 @@ program test_gf
    integer, parameter  :: mpiroot = 0
    character(len=512)  :: errmsg
    integer             :: errflg
+   integer             :: i
 
    !---For run
    integer, parameter :: ix = 10000, im = 10000, km = 100, ntracer = 10
@@ -107,6 +108,10 @@ program test_gf
    CALL mt19937_real1d(garea)
    cactiv(:) = 1
    cactiv_m(:) = 1
+   do i=1,im
+     cactiv  (i) = mod(i,2)
+     cactiv_m(i) = mod(i,3)
+   enddo
    CALL mt19937_real2d(forcet)
    CALL mt19937_real2d(forceqv_spechum)
    CALL mt19937_real2d(phil)
@@ -127,6 +132,10 @@ program test_gf
    htop(:) = 4
    kcnv(:) = 1
    xland(:) = 1
+   do i=1,im
+     kcnv (i) = mod(i,2)
+     xland(i) = mod(i,3)
+   enddo
    CALL mt19937_real1d(hfx2)
    CALL mt19937_real1d(qfx2)
    CALL mt19937_real2d(cliw)
@@ -142,6 +151,10 @@ program test_gf
    CALL mt19937_real2d(qci_conv)
    CALL mt19937_real1d(aod_gf)
    ix_dfi_radar(:) = 1
+   do i=1,im
+     dtidx       (i) = mod(i,2)
+     ix_dfi_radar(i) = mod(i,3)
+   enddo
    CALL mt19937_real1d(fh_dfi_radar)
    CALL mt19937_real2d(cap_suppress)
    

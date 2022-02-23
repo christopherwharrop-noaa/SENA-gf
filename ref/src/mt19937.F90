@@ -111,6 +111,7 @@ module mt19937
   real(r8),    parameter :: pi253_1  = 1._r8/(2._r8**53 - 1._r8)
   real(r8),    parameter :: pi253    = 1._r8/(2._r8**53)
   real(r8),    parameter :: pi252    = 1._r8/(2._r8**52)
+  real(r8),    parameter :: facJFM   = 10._r8
 
   integer(i8) :: mt(nn)       ! array for the state vector
   integer     :: mti = nn+1   ! mti==nn+1 means mt(nn) is not initialized
@@ -271,7 +272,7 @@ contains
     u = ubound(data)
 
     do i = l(1), u(1)
-      data(i) = genrand64_real3()
+      data(i) = genrand64_real3()*facJFM
     end do
 
   end subroutine mt19937_real1d
@@ -293,7 +294,7 @@ contains
 
     do j = l(2), u(2)
       do i = l(1), u(1)
-        data(i, j) = genrand64_real3()
+        data(i, j) = genrand64_real3()*facJFM
       end do
     end do
 
@@ -317,7 +318,7 @@ contains
     do k = l(3), u(3)
       do j = l(2), u(2)
         do i = l(1), u(1)
-          data(i, j, k) = genrand64_real3()
+          data(i, j, k) = genrand64_real3()*facJFM
         end do
       end do
     end do
@@ -343,7 +344,7 @@ contains
       do k = l(3), u(3)
         do j = l(2), u(2)
           do i = l(1), u(1)
-            data(i, j, k, m) = genrand64_real3()
+            data(i, j, k, m) = genrand64_real3()*facJFM
           end do
         end do
       end do
