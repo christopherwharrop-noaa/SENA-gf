@@ -147,7 +147,6 @@ contains
 !$acc declare copyout(hbot,htop,kcnv)
 !$acc declare copyin(xland,pbl)
    integer, dimension (im) :: tropics
-!$acc declare create(tropics)
 !  ruc variable
    real(kind=kind_phys), dimension (:),   intent(in)  :: hfx2,qfx2,psuri
    real(kind=kind_phys), dimension (:,:), intent(out) :: ud_mf,dd_mf,dt_mf
@@ -162,7 +161,6 @@ contains
 !$acc declare copyin(qv2di_spechum) copy(qv_spechum,aod_gf)
    ! Local water vapor mixing ratios and cloud water mixing ratios
    real(kind=kind_phys), dimension (im,km) :: qv2di, qv, forceqv, cnvw
-!$acc declare create(qv2di, qv, forceqv, cnvw)
    !
    real(kind=kind_phys), dimension(:),intent(in) :: garea
 !$acc declare copyin(garea)
@@ -199,23 +197,11 @@ contains
    integer, dimension (im) :: kbcon, ktop,ierr,ierrs,ierrm,kpbli
    integer, dimension (im) :: k22s,kbcons,ktops,k22,jmin,jminm
    integer, dimension (im) :: kbconm,ktopm,k22m
-!$acc declare create(k22_shallow,kbcon_shallow,ktop_shallow,rand_mom,rand_vmas,        &
-!$acc                rand_clos,gdc,gdc2,ht,ccn_gf,ccn_m,dx,frhm,frhd, &
-!$acc                outt,outq,outqc,phh,subm,cupclw,cupclws, &
-!$acc                dhdt,zu,zus,zd,phf,zum,zdm,outum,outvm,   &
-!$acc                outts,outqs,outqcs,outu,outv,outus,outvs, &
-!$acc                outtm,outqm,outqcm,submm,cupclwm,         &
-!$acc                cnvwt,cnvwts,cnvwtm,hco,hcdo,zdo,zdd,hcom,hcdom,zdom, &
-!$acc                tau_ecmwf,edt,edtm,edtd,ter11,aa0,xlandi, &
-!$acc                pret,prets,pretm,hexec,forcing,forcing2,  &
-!$acc                kbcon, ktop,ierr,ierrs,ierrm,kpbli, &
-!$acc                k22s,kbcons,ktops,k22,jmin,jminm,kbconm,ktopm,k22m)
 
    integer :: iens,ibeg,iend,jbeg,jend,n
    integer :: ibegh,iendh,jbegh,jendh
    integer :: ibegc,iendc,jbegc,jendc,kstop
    real(kind=kind_phys), dimension(im,km) :: rho_dryar
-!$acc declare create(rho_dryar)
    real(kind=kind_phys) :: pten,pqen,paph,zrho,pahfs,pqhfl,zkhvfl,pgeoh
    integer, parameter :: ipn = 0
 
@@ -229,9 +215,6 @@ contains
    real(kind=kind_phys), dimension (im)    :: z1,psur,cuten,cutens,cutenm
    real(kind=kind_phys), dimension (im)    :: umean,vmean,pmean
    real(kind=kind_phys), dimension (im)    :: xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv
-!$acc declare create(qcheck,zo,t2d,q2d,po,p2d,rhoi,clw_ten,tn,qo,tshall,qshall,dz8w,omeg, &
-!$acc                z1,psur,cuten,cutens,cutenm,umean,vmean,pmean,           &
-!$acc                xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv)
 
    integer :: i,j,k,icldck,ipr,jpr,jpr_deep,ipr_deep,uidx,vidx,tidx,qidx
    integer :: itf,jtf,ktf,iss,jss,nbegin,nend,cliw_idx,clcw_idx
@@ -241,7 +224,6 @@ contains
    real(kind=kind_phys), dimension(km)   :: massflx,trcflx_in1,clw_in1,po_cup
 !  real(kind=kind_phys), dimension(km)   :: trcflx_in2,clw_in2,clw_ten2
    real(kind=kind_phys), dimension (im)  :: flux_tun,tun_rad_mid,tun_rad_shall,tun_rad_deep
-!$acc declare create(flux_tun,tun_rad_mid,tun_rad_shall,tun_rad_deep)
    character*50 :: ierrc(im),ierrcm(im)
    character*50 :: ierrcs(im)
 !  ruc variable
@@ -249,14 +231,12 @@ contains
 !  qfx2 -- latent heat flux (kg/kg m/s), positive upward from sfc
 !  gf needs them in w/m2. define hfx and qfx after simple unit conversion
    real(kind=kind_phys), dimension (im)  :: hfx,qfx
-!$acc declare create(hfx,qfx)
    real(kind=kind_phys) tem,tem1,tf,tcr,tcrf
    real(kind=kind_phys) :: cliw_shal,clcw_shal,tem_shal, cliw_both, weight_sum
    real(kind=kind_phys) :: cliw_deep,clcw_deep,tem_deep, clcw_both
    integer :: cliw_deep_idx, clcw_deep_idx, cliw_shal_idx, clcw_shal_idx
 
    real(kind=kind_phys) :: cap_suppress_j(im)
-!$acc declare create(cap_suppress_j)
    integer :: itime, do_cap_suppress_here
    logical :: exit_func
 
@@ -267,6 +247,29 @@ contains
   ! initialize ccpp error handling variables
      errmsg = ''
      errflg = 0
+
+   !-----allocate on heap ------
+!$acc enter data create(tropics)
+!$acc enter data create(qv2di, qv, forceqv, cnvw)
+!$acc enter data create(k22_shallow,kbcon_shallow,ktop_shallow,rand_mom,rand_vmas,        &
+!$acc                rand_clos,gdc,gdc2,ht,ccn_gf,ccn_m,dx,frhm,frhd, &
+!$acc                outt,outq,outqc,phh,subm,cupclw,cupclws, &
+!$acc                dhdt,zu,zus,zd,phf,zum,zdm,outum,outvm,   &
+!$acc                outts,outqs,outqcs,outu,outv,outus,outvs, &
+!$acc                outtm,outqm,outqcm,submm,cupclwm,         &
+!$acc                cnvwt,cnvwts,cnvwtm,hco,hcdo,zdo,zdd,hcom,hcdom,zdom, &
+!$acc                tau_ecmwf,edt,edtm,edtd,ter11,aa0,xlandi, &
+!$acc                pret,prets,pretm,hexec,forcing,forcing2,  &
+!$acc                kbcon, ktop,ierr,ierrs,ierrm,kpbli, &
+!$acc                k22s,kbcons,ktops,k22,jmin,jminm,kbconm,ktopm,k22m)
+!$acc enter data create(rho_dryar)
+!$acc enter data create(qcheck,zo,t2d,q2d,po,p2d,rhoi,clw_ten,tn,qo,tshall,qshall,dz8w,omeg, &
+!$acc                z1,psur,cuten,cutens,cutenm,umean,vmean,pmean,           &
+!$acc                xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv)
+!$acc enter data create(flux_tun,tun_rad_mid,tun_rad_shall,tun_rad_deep)
+!$acc enter data create(hfx,qfx)
+!$acc enter data create(cap_suppress_j)
+   !-----allocate on heap ------
 
      if(do_cap_suppress) then
 !$acc serial
@@ -1187,6 +1190,30 @@ contains
 !$acc end parallel
           endif
         endif
+
+   !-----allocate on heap ------
+!$acc exit data delete(tropics)
+!$acc exit data delete(qv2di, qv, forceqv, cnvw)
+!$acc exit data delete(k22_shallow,kbcon_shallow,ktop_shallow,rand_mom,rand_vmas,        &
+!$acc                rand_clos,gdc,gdc2,ht,ccn_gf,ccn_m,dx,frhm,frhd, &
+!$acc                outt,outq,outqc,phh,subm,cupclw,cupclws, &
+!$acc                dhdt,zu,zus,zd,phf,zum,zdm,outum,outvm,   &
+!$acc                outts,outqs,outqcs,outu,outv,outus,outvs, &
+!$acc                outtm,outqm,outqcm,submm,cupclwm,         &
+!$acc                cnvwt,cnvwts,cnvwtm,hco,hcdo,zdo,zdd,hcom,hcdom,zdom, &
+!$acc                tau_ecmwf,edt,edtm,edtd,ter11,aa0,xlandi, &
+!$acc                pret,prets,pretm,hexec,forcing,forcing2,  &
+!$acc                kbcon, ktop,ierr,ierrs,ierrm,kpbli, &
+!$acc                k22s,kbcons,ktops,k22,jmin,jminm,kbconm,ktopm,k22m)
+!$acc exit data delete(rho_dryar)
+!$acc exit data delete(qcheck,zo,t2d,q2d,po,p2d,rhoi,clw_ten,tn,qo,tshall,qshall,dz8w,omeg, &
+!$acc                z1,psur,cuten,cutens,cutenm,umean,vmean,pmean,           &
+!$acc                xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv)
+!$acc exit data delete(flux_tun,tun_rad_mid,tun_rad_shall,tun_rad_deep)
+!$acc exit data delete(hfx,qfx)
+!$acc exit data delete(cap_suppress_j)
+   !-----allocate on heap ------
+
    end subroutine cu_gf_driver_run
 !> @}
 end module cu_gf_driver

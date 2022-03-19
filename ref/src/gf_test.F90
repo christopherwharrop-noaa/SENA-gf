@@ -7,20 +7,20 @@ program test_gf
    IMPLICIT NONE
 
    !--For init
-   integer, parameter  :: imfshalcnv = 2, imfshalcnv_gf = 2
-   integer, parameter  :: imfdeepcnv = 1, imfdeepcnv_gf = 1
+   integer  :: imfshalcnv, imfshalcnv_gf
+   integer  :: imfdeepcnv, imfdeepcnv_gf
    integer, parameter  :: mpirank = 0
    integer, parameter  :: mpiroot = 0
    character(len=512)  :: errmsg
    integer             :: errflg
-   integer             :: i,j
+   integer             :: i,j,k
 
    !---For run
-   integer, parameter :: ix = 10000, im = 10000, km = 100, ntracer = 10
-   logical, parameter :: flag_for_scnv_generic_tend = .TRUE., flag_for_dcnv_generic_tend = .TRUE.
-   real (kind=kind_phys), parameter :: g = 1.0 ,cp = 2.0, xlv = 3.0, r_v = 2.3
-   logical, parameter :: ldiag3d = .TRUE., flag_init = .FALSE., flag_restart = .FALSE.
-   real(kind=kind_phys) :: dt = 0.1
+   integer :: ix, im, km, ntracer
+   logical :: flag_for_scnv_generic_tend, flag_for_dcnv_generic_tend
+   real (kind=kind_phys) :: g,cp, xlv, r_v
+   logical :: ldiag3d, flag_init, flag_restart
+   real(kind=kind_phys) :: dt
    integer :: index_of_x_wind, index_of_y_wind, index_of_temperature,            &
         index_of_process_scnv, index_of_process_dcnv, ntqv, ntcw, ntiw    !in
 
@@ -45,10 +45,10 @@ program test_gf
    integer, dimension(:), allocatable :: cactiv,cactiv_m !inout
    real(kind=kind_phys),    dimension (:), allocatable :: aod_gf !inout
 
-   logical, parameter :: do_cap_suppress = .FALSE.
-   integer, parameter :: dfi_radar_max_intervals = 1
-   real(kind=kind_phys), parameter:: fhour = 1.0
-   integer, parameter :: num_dfi_radar = 10
+   logical :: do_cap_suppress
+   integer :: dfi_radar_max_intervals
+   real(kind=kind_phys):: fhour
+   integer :: num_dfi_radar
    integer, dimension(:), allocatable :: ix_dfi_radar
    real(kind=kind_phys), dimension(:), allocatable :: fh_dfi_radar
    real(kind=kind_phys), dimension(:,:), allocatable :: cap_suppress
@@ -58,6 +58,52 @@ program test_gf
 
    !---Allocating arrays
    integer :: alloc_stat
+
+   !===============================
+   ntracer = 13 !10
+   ix = 10240 !1
+   im = 10240 !1
+   km = 128 !64
+   dt = 600.0 !0.1
+   flag_init = .FALSE.
+   flag_restart = .FALSE.
+   g = 9.806649999
+   cp = 1004.6
+   xlv = 2500000.0
+   r_v = 461.5
+   imfshalcnv = 3
+   imfshalcnv_gf = 3
+   imfdeepcnv = 1
+   imfdeepcnv_gf = 1
+   flag_for_scnv_generic_tend = .FALSE.
+   flag_for_dcnv_generic_tend = .FALSE.
+   ntqv = 1
+   ntiw = 3
+   ntcw = 2
+   index_of_x_wind = 11
+   index_of_y_wind = 12
+   index_of_temperature = 10
+   index_of_process_scnv = 3
+   index_of_process_dcnv = 2
+   fhour = 72.0 !1.0
+   num_dfi_radar = 10
+   dfi_radar_max_intervals = 4 !1
+   ldiag3d = .TRUE.
+   do_cap_suppress = .TRUE.
+
+   !!===============================
+   !open(unit=10, file="input.dat", status='old')
+   !read(10,*) ntracer,im,km,dt,flag_init,flag_restart,g,cp,xlv,r_v, &
+   !            imfshalcnv,flag_for_scnv_generic_tend, &
+   !            flag_for_dcnv_generic_tend,ntqv,ntiw,ntcw, &
+   !            index_of_x_wind, index_of_y_wind, index_of_temperature, &
+   !            index_of_process_scnv, index_of_process_dcnv, fhour, &
+   !            num_dfi_radar, dfi_radar_max_intervals, ldiag3d, do_cap_suppress
+   !ix = im
+   !flag_for_scnv_generic_tend = .TRUE.
+   !flag_for_dcnv_generic_tend = .TRUE.
+   !num_dfi_radar = 10
+   !!===============================
 
    PRINT*, "Allocating arrays"
    ALLOCATE(                        &
@@ -93,8 +139,8 @@ program test_gf
        dt_mf(im, km),               &
        cnvw_moist(ix, km),          &
        cnvc(ix, km),                &
-       dtend(im, km, 20),           & !confirm
-       dtidx(im, km),               & !integer
+       dtend(im, km, 105),           & !confirm
+       dtidx(113, 18),               & !integer
        qci_conv(im, km),            & !confirm
        ix_dfi_radar(num_dfi_radar), &
        fh_dfi_radar(num_dfi_radar), &
@@ -102,7 +148,7 @@ program test_gf
        STAT=alloc_stat)
    IF (alloc_stat /= 0) STOP "Error allocating arrays"
 
-
+   !=============================================================
    !---Initialize arrays with random values
    PRINT*, "Initialize arrays"
    CALL mt19937_real1d(garea)
@@ -151,8 +197,8 @@ program test_gf
    CALL mt19937_real2d(qci_conv)
    CALL mt19937_real1d(aod_gf)
    ix_dfi_radar(:) = 1
-   do i=1,im
-     do j=1,km
+   do i=1,113
+     do j=1,18
         dtidx(i,j) = 1 + mod(j,8) + mod(i,8)
      enddo
    enddo
@@ -161,47 +207,91 @@ program test_gf
    enddo
    CALL mt19937_real1d(fh_dfi_radar)
    CALL mt19937_real2d(cap_suppress)
+   !=============================================================
    
+   !=============================================================
+   !print*,"=================================="
+   !print*,"    Reading input data            "
+   !print*,"=================================="
+   !read(10,*) (garea(i), i=1,im)
+   !read(10,*) (cactiv(i), i=1,im)
+   !read(10,*) ((forcet(i,j), j=1,km), i=1,im)
+   !read(10,*) ((forceqv_spechum(i,j), j=1,km), i=1,im)
+   !read(10,*) ((phil(i,j), j=1,km), i=1,im)
+   !read(10,*) (raincv(i), i=1,im)
+   !read(10,*) ((qv_spechum(i,j), j=1,km), i=1,im)
+   !read(10,*) ((t(i,j), j=1,km), i=1,im)
+   !read(10,*) (cld1d(i), i=1,im)
+   !read(10,*) ((us(i,j), j=1,km), i=1,im)
+   !read(10,*) ((vs(i,j), j=1,km), i=1,im)
+   !read(10,*) ((t2di(i,j), j=1,km), i=1,im)
+   !read(10,*) ((w(i,j), j=1,km), i=1,im)
+   !read(10,*) ((qv2di_spechum(i,j), j=1,km), i=1,im)
+   !read(10,*) ((p2di(i,j), j=1,km), i=1,im)
+   !read(10,*) (psuri(i), i=1,im)
+   !read(10,*) (hbot(i), i=1,im)
+   !read(10,*) (htop(i), i=1,im)
+   !read(10,*) (kcnv(i), i=1,im)
+   !read(10,*) (xland(i), i=1,im)
+   !read(10,*) (hfx2(i), i=1,im)
+   !read(10,*) (qfx2(i), i=1,im)
+   !read(10,*) (aod_gf(i), i=1,im)
+   !read(10,*) ((cliw(i,j), j=1,km), i=1,im)
+   !read(10,*) ((clcw(i,j), j=1,km), i=1,im)
+   !read(10,*) (pbl(i), i=1,im)
+   !read(10,*) ((ud_mf(i,j), j=1,km), i=1,im)
+   !read(10,*) ((dd_mf(i,j), j=1,km), i=1,im)
+   !read(10,*) ((dt_mf(i,j), j=1,km), i=1,im)
+   !read(10,*) ((cnvw_moist(i,j), j=1,km), i=1,im)
+   !read(10,*) ((cnvc(i,j), j=1,km), i=1,im)
+   !read(10,*) (((dtend(i,j,k), k=1,105), j=1,km), i=1,im)
+   !read(10,*) ((dtidx(i,j), j=1,18), i=1,113)
+   !read(10,*) ((qci_conv(i,j), j=1,km), i=1,im)
+   !read(10,*) (ix_dfi_radar(i), i=1,num_dfi_radar)
+   !read(10,*) (fh_dfi_radar(i), i=1,num_dfi_radar)
+   !read(10,*) ((cap_suppress(i,j), j=1,num_dfi_radar), i=1,im)
+   !print*,"=================================="
+   !close(10)
+   !=============================================================
 
-!$acc enter data copyin(         &
-!$acc       garea,               &
-!$acc       cactiv,              &
-!$acc       cactiv_m,            &
-!$acc       forcet,              &
-!$acc       forceqv_spechum,     &
-!$acc       phil,                &
-!$acc       raincv,              &
-!$acc       qv_spechum,          &
-!$acc       t,                   &
-!$acc       cld1d,               &
-!$acc       us,                  &
-!$acc       vs,                  &
-!$acc       t2di,                &
-!$acc       w,                   &
-!$acc       qv2di_spechum,       &
-!$acc       p2di,                &
-!$acc       psuri,               &
-!$acc       hbot,                &
-!$acc       htop,                &
-!$acc       kcnv,                &
-!$acc       xland,               &
-!$acc       hfx2,                &
-!$acc       qfx2,                &
-!$acc       aod_gf,              &
-!$acc       cliw,                &
-!$acc       clcw,                &
-!$acc       pbl,                 &
-!$acc       ud_mf,               &
-!$acc       dd_mf,               &
-!$acc       dt_mf,               &
-!$acc       cnvw_moist,          &
-!$acc       cnvc,                &
-!$acc       dtend,               &
-!$acc       dtidx,               &
-!$acc       qci_conv,            &
-!$acc       ix_dfi_radar,        &
-!$acc       fh_dfi_radar,        &
-!$acc       cap_suppress)
+!$acc enter data copyin( garea )               
+!$acc enter data copyin( cactiv )              
+!$acc enter data copyin( cactiv_m )            
+!$acc enter data copyin( forcet )              
+!$acc enter data copyin( forceqv_spechum )     
+!$acc enter data copyin( phil )                
+!$acc enter data copyin( raincv )              
+!$acc enter data copyin( qv_spechum )          
+!$acc enter data copyin( t )                   
+!$acc enter data copyin( cld1d )               
+!$acc enter data copyin( us )                  
+!$acc enter data copyin( vs )                  
+!$acc enter data copyin( t2di )                
+!$acc enter data copyin( w )                   
+!$acc enter data copyin( qv2di_spechum )       
+!$acc enter data copyin( p2di )                
+!$acc enter data copyin( psuri )               
+!$acc enter data copyin( hbot )                
+!$acc enter data copyin( htop )                
+!$acc enter data copyin( kcnv )                
+!$acc enter data copyin( xland )               
+!$acc enter data copyin( hfx2 )                
+!$acc enter data copyin( qfx2 )                
+!$acc enter data copyin( aod_gf )              
+!$acc enter data copyin( cliw )                
+!$acc enter data copyin( clcw )                
+!$acc enter data copyin( pbl )                 
+!$acc enter data copyin( ud_mf )               
+!$acc enter data copyin( dd_mf )               
+!$acc enter data copyin( dt_mf )               
+!$acc enter data copyin( cnvw_moist )          
+!$acc enter data copyin( cnvc )                
+!$acc enter data copyin( dtend )               
+!$acc enter data copyin( dtidx )               
+!$acc enter data copyin( qci_conv)
+!$acc enter data copyin( ix_dfi_radar )        
+!$acc enter data copyin( fh_dfi_radar )        
+!$acc enter data copyin( cap_suppress)
 
    !--- Print state
    CALL print_state("Input state",   &
@@ -275,45 +365,44 @@ program test_gf
    PRINT*, "Calling finalize"
    CALL cu_gf_driver_finalize()
 
-!$acc update self(               &
-!$acc       garea,               &
-!$acc       cactiv,              &
-!$acc       cactiv_m,            &
-!$acc       forcet,              &
-!$acc       forceqv_spechum,     &
-!$acc       phil,                &
-!$acc       raincv,              &
-!$acc       qv_spechum,          &
-!$acc       t,                   &
-!$acc       cld1d,               &
-!$acc       us,                  &
-!$acc       vs,                  &
-!$acc       t2di,                &
-!$acc       w,                   &
-!$acc       qv2di_spechum,       &
-!$acc       p2di,                &
-!$acc       psuri,               &
-!$acc       hbot,                &
-!$acc       htop,                &
-!$acc       kcnv,                &
-!$acc       xland,               &
-!$acc       hfx2,                &
-!$acc       qfx2,                &
-!$acc       aod_gf,              &
-!$acc       cliw,                &
-!$acc       clcw,                &
-!$acc       pbl,                 &
-!$acc       ud_mf,               &
-!$acc       dd_mf,               &
-!$acc       dt_mf,               &
-!$acc       cnvw_moist,          &
-!$acc       cnvc,                &
-!$acc       dtend,               &
-!$acc       dtidx,               &
-!$acc       qci_conv,            &
-!$acc       ix_dfi_radar,        &
-!$acc       fh_dfi_radar,        &
-!$acc       cap_suppress)
+!$acc update self( garea )               
+!$acc update self( cactiv )              
+!$acc update self( cactiv_m )            
+!$acc update self( forcet )              
+!$acc update self( forceqv_spechum )     
+!$acc update self( phil )                
+!$acc update self( raincv )              
+!$acc update self( qv_spechum )          
+!$acc update self( t )                   
+!$acc update self( cld1d )               
+!$acc update self( us )                  
+!$acc update self( vs )                  
+!$acc update self( t2di )                
+!$acc update self( w )                   
+!$acc update self( qv2di_spechum )       
+!$acc update self( p2di )                
+!$acc update self( psuri )               
+!$acc update self( hbot )                
+!$acc update self( htop )                
+!$acc update self( kcnv )                
+!$acc update self( xland )               
+!$acc update self( hfx2 )                
+!$acc update self( qfx2 )                
+!$acc update self( aod_gf )              
+!$acc update self( cliw )                
+!$acc update self( clcw )                
+!$acc update self( pbl )                 
+!$acc update self( ud_mf )               
+!$acc update self( dd_mf )               
+!$acc update self( dt_mf )               
+!$acc update self( cnvw_moist )          
+!$acc update self( cnvc )                
+!$acc update self( dtend )               
+!$acc update self( dtidx )               
+!$acc update self( qci_conv)
+!$acc update self( ix_dfi_radar )        
+!$acc update self( fh_dfi_radar )        
+!$acc update self( cap_suppress)
 
    !--- Print state
    CALL print_state("Output state",   &
@@ -357,5 +446,43 @@ program test_gf
        cap_suppress             &
        )
    !-------------
+!$acc exit data delete( garea )               
+!$acc exit data delete( cactiv )              
+!$acc exit data delete( cactiv_m )            
+!$acc exit data delete( forcet )              
+!$acc exit data delete( forceqv_spechum )     
+!$acc exit data delete( phil )                
+!$acc exit data delete( raincv )              
+!$acc exit data delete( qv_spechum )          
+!$acc exit data delete( t )                   
+!$acc exit data delete( cld1d )               
+!$acc exit data delete( us )                  
+!$acc exit data delete( vs )                  
+!$acc exit data delete( t2di )                
+!$acc exit data delete( w )                   
+!$acc exit data delete( qv2di_spechum )       
+!$acc exit data delete( p2di )                
+!$acc exit data delete( psuri )               
+!$acc exit data delete( hbot )                
+!$acc exit data delete( htop )                
+!$acc exit data delete( kcnv )                
+!$acc exit data delete( xland )               
+!$acc exit data delete( hfx2 )                
+!$acc exit data delete( qfx2 )                
+!$acc exit data delete( aod_gf )              
+!$acc exit data delete( cliw )                
+!$acc exit data delete( clcw )                
+!$acc exit data delete( pbl )                 
+!$acc exit data delete( ud_mf )               
+!$acc exit data delete( dd_mf )               
+!$acc exit data delete( dt_mf )               
+!$acc exit data delete( cnvw_moist )          
+!$acc exit data delete( cnvc )                
+!$acc exit data delete( dtend )               
+!$acc exit data delete( dtidx )               
+!$acc exit data delete( qci_conv(1:im,1:km))
+!$acc exit data delete( ix_dfi_radar )        
+!$acc exit data delete( fh_dfi_radar )        
+!$acc exit data delete( cap_suppress)
 
 end program test_gf
