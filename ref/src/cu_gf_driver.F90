@@ -295,15 +295,19 @@ contains
          cliw_deep_idx=0
          clcw_deep_idx=0
        else
+!$acc serial
          cliw_deep_idx=dtidx(100+ntiw,index_of_process_dcnv)
          clcw_deep_idx=dtidx(100+ntcw,index_of_process_dcnv)
+!$acc end serial
        endif
        if(flag_for_scnv_generic_tend) then
          cliw_shal_idx=0
          clcw_shal_idx=0
        else
+!$acc serial
          cliw_shal_idx=dtidx(100+ntiw,index_of_process_scnv)
          clcw_shal_idx=dtidx(100+ntcw,index_of_process_scnv)
+!$acc end serial
        endif
        if(cliw_deep_idx>=1 .or. clcw_deep_idx>=1 .or. &
             cliw_shal_idx>=1 .or.  clcw_shal_idx>=1) then
@@ -1064,10 +1068,12 @@ contains
 !
         if(ldiag3d) then
           if(ishallow_g3.eq.1 .and. .not.flag_for_scnv_generic_tend) then
+!$acc serial
             uidx=dtidx(index_of_x_wind,index_of_process_scnv)
             vidx=dtidx(index_of_y_wind,index_of_process_scnv)
             tidx=dtidx(index_of_temperature,index_of_process_scnv)
             qidx=dtidx(100+ntqv,index_of_process_scnv)
+!$acc end serial
             if(uidx>=1) then
 !$acc kernels
               do k=kts,ktf
@@ -1102,9 +1108,11 @@ contains
             endif
           endif
           if((ideep.eq.1. .or. imid_gf.eq.1) .and. .not.flag_for_dcnv_generic_tend) then
+!$acc serial
             uidx=dtidx(index_of_x_wind,index_of_process_dcnv)
             vidx=dtidx(index_of_y_wind,index_of_process_dcnv)
             tidx=dtidx(index_of_temperature,index_of_process_dcnv)
+!$acc end serial
             if(uidx>=1) then
 !$acc kernels
               do k=kts,ktf
@@ -1127,7 +1135,9 @@ contains
 !$acc end kernels
             endif
 
+!$acc serial
             qidx=dtidx(100+ntqv,index_of_process_dcnv)
+!$acc end serial
             if(qidx>=1) then
 !$acc kernels
               do k=kts,ktf
