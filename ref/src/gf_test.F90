@@ -3,6 +3,12 @@ program test_gf
    USE gf_utils
    USE cu_gf_driver
    USE machine, only: kind_phys
+#ifdef _OPENMP
+   USE omp_lib
+#endif
+#ifdef _OPENACC
+   USE accel_lib
+#endif
 
    IMPLICIT NONE
 
@@ -56,15 +62,44 @@ program test_gf
    integer :: count_rate, count_start, count_end
    real :: elapsed
 
-   !---Allocating arrays
    integer :: alloc_stat
+   integer :: n_omp_threads, s, e, tid
+   integer :: N_GPUS, gpuid
 
    !===============================
-   ntracer = 13 !10
-   ix = 10240 !1
-   im = 10240 !1
-   km = 128 !64
-   dt = 600.0 !0.1
+#ifdef _OPENMP
+!$omp parallel
+!$omp single
+   n_omp_threads = omp_get_num_threads()
+!$omp end single
+!$omp end parallel
+#endif
+
+#ifdef _OPENACC
+   N_GPUS = acc_get_num_devices(acc_device_nvidia)
+   n_omp_threads = N_GPUS
+   CALL omp_set_num_threads(n_omp_threads)
+#else
+   N_GPUS = 0
+#endif
+
+#ifdef _OPENMP
+   WRITE(6,'(" Using ",i3," threads")') n_omp_threads
+#endif
+#ifdef _OPENACC
+   WRITE(6,'(" Using ",i3," gpus")') N_GPUS
+#endif
+
+   !===============================
+   ntracer = 13
+   im = 10240
+   km = 256
+   !increase workload by number of gpus
+#ifdef _OPENACC
+   im = N_GPUS * im
+#endif
+   ix = im
+   dt = 600.0
    flag_init = .FALSE.
    flag_restart = .FALSE.
    g = 9.806649999
@@ -87,9 +122,11 @@ program test_gf
    index_of_process_dcnv = 2
    fhour = 72.0 !1.0
    num_dfi_radar = 10
-   dfi_radar_max_intervals = 4 !1
+   dfi_radar_max_intervals = 4
    ldiag3d = .TRUE.
    do_cap_suppress = .TRUE.
+
+   WRITE(6,'(" (im,km) = (",i5,",",i4,")")') im,km
 
    !!===============================
    !open(unit=10, file="input.dat", status='old')
@@ -143,70 +180,72 @@ program test_gf
        dtidx(113, 18),               & !integer
        qci_conv(im, km),            & !confirm
        ix_dfi_radar(num_dfi_radar), &
-       fh_dfi_radar(num_dfi_radar), &
+       fh_dfi_radar(num_dfi_radar+1), &
        cap_suppress(im, num_dfi_radar), &
        STAT=alloc_stat)
    IF (alloc_stat /= 0) STOP "Error allocating arrays"
 
    !=============================================================
-   !---Initialize arrays with random values
-   PRINT*, "Initialize arrays"
-   CALL mt19937_real1d(garea)
-   cactiv(:) = 1
-   cactiv_m(:) = 1
-   do i=1,im
+   PRINT*, "Initializing arrays"
+   s = 1
+   e = im
+
+   CALL mt19937_real1d(garea(s:e))
+   cactiv(s:e) = 1
+   cactiv_m(s:e) = 1
+   do i=s,e
      cactiv  (i) = 1 + mod(i,2)
      cactiv_m(i) = 1 + mod(i,3)
    enddo
-   CALL mt19937_real2d(forcet)
-   CALL mt19937_real2d(forceqv_spechum)
-   CALL mt19937_real2d(phil)
-   CALL mt19937_real1d(raincv)
-   CALL mt19937_real2d(qv_spechum)
-   CALL mt19937_real2d(t)
-   t(:,:) = t(:,:) + 510
-   CALL mt19937_real1d(cld1d)
-   CALL mt19937_real2d(us)
-   CALL mt19937_real2d(vs)
-   CALL mt19937_real2d(t2di)
-   t2di(:,:) = t2di(:,:) + 500
-   CALL mt19937_real2d(w)
-   CALL mt19937_real2d(qv2di_spechum)
-   CALL mt19937_real2d(p2di)
-   CALL mt19937_real1d(psuri)
-   hbot(:) = 1
-   htop(:) = 4
-   kcnv(:) = 1
-   xland(:) = 1
-   do i=1,im
+   CALL mt19937_real2d(forcet(s:e,:))
+   CALL mt19937_real2d(forceqv_spechum(s:e,:))
+   CALL mt19937_real2d(phil(s:e,:))
+   CALL mt19937_real1d(raincv(s:e))
+   CALL mt19937_real2d(qv_spechum(s:e,:))
+   CALL mt19937_real2d(t(s:e,:))
+   t(s:e,:) = t(s:e,:) + 510
+   CALL mt19937_real1d(cld1d(s:e))
+   CALL mt19937_real2d(us(s:e,:))
+   CALL mt19937_real2d(vs(s:e,:))
+   CALL mt19937_real2d(t2di(s:e,:))
+   t2di(s:e,:) = t2di(s:e,:) + 500
+   CALL mt19937_real2d(w(s:e,:))
+   CALL mt19937_real2d(qv2di_spechum(s:e,:))
+   CALL mt19937_real2d(p2di(s:e,:))
+   CALL mt19937_real1d(psuri(s:e))
+   hbot(s:e) = 1
+   htop(s:e) = 4
+   kcnv(s:e) = 1
+   xland(s:e) = 1
+   do i=s,e
      kcnv (i) = 1 + mod(i,2)
      xland(i) = 1 + mod(i,3)
    enddo
-   CALL mt19937_real1d(hfx2)
-   CALL mt19937_real1d(qfx2)
-   CALL mt19937_real2d(cliw)
-   CALL mt19937_real2d(clcw)
-   CALL mt19937_real1d(pbl)
-   CALL mt19937_real2d(ud_mf)
-   CALL mt19937_real2d(dd_mf)
-   CALL mt19937_real2d(dt_mf)
-   CALL mt19937_real2d(cnvw_moist)
-   CALL mt19937_real2d(cnvc)
-   CALL mt19937_real3d(dtend)
+   CALL mt19937_real1d(hfx2(s:e))
+   CALL mt19937_real1d(qfx2(s:e))
+   CALL mt19937_real2d(cliw(s:e,:))
+   CALL mt19937_real2d(clcw(s:e,:))
+   CALL mt19937_real1d(pbl(s:e))
+   CALL mt19937_real2d(ud_mf(s:e,:))
+   CALL mt19937_real2d(dd_mf(s:e,:))
+   CALL mt19937_real2d(dt_mf(s:e,:))
+   CALL mt19937_real2d(cnvw_moist(s:e,:))
+   CALL mt19937_real2d(cnvc(s:e,:))
+   CALL mt19937_real3d(dtend(s:e,:,:))
    dtidx(:,:) = 1
-   CALL mt19937_real2d(qci_conv)
-   CALL mt19937_real1d(aod_gf)
+   CALL mt19937_real2d(qci_conv(s:e,:))
+   CALL mt19937_real1d(aod_gf(s:e))
    ix_dfi_radar(:) = 1
    do i=1,113
      do j=1,18
         dtidx(i,j) = 1 + mod(j,8) + mod(i,8)
      enddo
    enddo
-   do i=1,im
+   do i=1,num_dfi_radar
      ix_dfi_radar(i) = 1 + mod(i,3)
    enddo
-   CALL mt19937_real1d(fh_dfi_radar)
-   CALL mt19937_real2d(cap_suppress)
+   CALL mt19937_real1d(fh_dfi_radar(:))
+   CALL mt19937_real2d(cap_suppress(s:e,:))
    !=============================================================
    
    !=============================================================
@@ -248,50 +287,72 @@ program test_gf
    !read(10,*) ((dtidx(i,j), j=1,18), i=1,113)
    !read(10,*) ((qci_conv(i,j), j=1,km), i=1,im)
    !read(10,*) (ix_dfi_radar(i), i=1,num_dfi_radar)
-   !read(10,*) (fh_dfi_radar(i), i=1,num_dfi_radar)
+   !read(10,*) (fh_dfi_radar(i), i=1,num_dfi_radar+1)
    !read(10,*) ((cap_suppress(i,j), j=1,num_dfi_radar), i=1,im)
    !print*,"=================================="
    !close(10)
    !=============================================================
 
-!$acc enter data copyin( garea )               
-!$acc enter data copyin( cactiv )              
-!$acc enter data copyin( cactiv_m )            
-!$acc enter data copyin( forcet )              
-!$acc enter data copyin( forceqv_spechum )     
-!$acc enter data copyin( phil )                
-!$acc enter data copyin( raincv )              
-!$acc enter data copyin( qv_spechum )          
-!$acc enter data copyin( t )                   
-!$acc enter data copyin( cld1d )               
-!$acc enter data copyin( us )                  
-!$acc enter data copyin( vs )                  
-!$acc enter data copyin( t2di )                
-!$acc enter data copyin( w )                   
-!$acc enter data copyin( qv2di_spechum )       
-!$acc enter data copyin( p2di )                
-!$acc enter data copyin( psuri )               
-!$acc enter data copyin( hbot )                
-!$acc enter data copyin( htop )                
-!$acc enter data copyin( kcnv )                
-!$acc enter data copyin( xland )               
-!$acc enter data copyin( hfx2 )                
-!$acc enter data copyin( qfx2 )                
-!$acc enter data copyin( aod_gf )              
-!$acc enter data copyin( cliw )                
-!$acc enter data copyin( clcw )                
-!$acc enter data copyin( pbl )                 
-!$acc enter data copyin( ud_mf )               
-!$acc enter data copyin( dd_mf )               
-!$acc enter data copyin( dt_mf )               
-!$acc enter data copyin( cnvw_moist )          
-!$acc enter data copyin( cnvc )                
-!$acc enter data copyin( dtend )               
-!$acc enter data copyin( dtidx )               
-!$acc enter data copyin( qci_conv)
-!$acc enter data copyin( ix_dfi_radar )        
-!$acc enter data copyin( fh_dfi_radar )        
-!$acc enter data copyin( cap_suppress)
+   CALL SYSTEM_CLOCK (count_rate=count_rate)
+   CALL SYSTEM_CLOCK (count=count_start)
+
+#ifdef _OPENACC
+   PRINT*, "Copying arrays to GPU"
+!$omp parallel do private(gpuid,s,e)
+   DO gpuid = 0, N_GPUS - 1
+     CALL acc_set_device_num(gpuid,acc_device_nvidia)
+     s = gpuid * (im / N_GPUS) + 1
+     e = (gpuid + 1) * (im / N_GPUS)
+     e = MIN(e, im)
+     WRITE(6,'("GPU ",i3," working on ",i6," columns ",i6,":",i6)') gpuid,e-s+1,s,e
+
+!$acc enter data copyin( garea(s:e) )               
+!$acc enter data copyin( cactiv(s:e) )              
+!$acc enter data copyin( cactiv_m(s:e) )            
+!$acc enter data copyin( forcet(s:e,:) )              
+!$acc enter data copyin( forceqv_spechum(s:e,:) )     
+!$acc enter data copyin( phil(s:e,:) )                
+!$acc enter data copyin( raincv(s:e) )              
+!$acc enter data copyin( qv_spechum(s:e,:) )          
+!$acc enter data copyin( t(s:e,:) )                   
+!$acc enter data copyin( cld1d(s:e) )               
+!$acc enter data copyin( us(s:e,:) )                  
+!$acc enter data copyin( vs(s:e,:) )                  
+!$acc enter data copyin( t2di(s:e,:) )                
+!$acc enter data copyin( w(s:e,:) )                   
+!$acc enter data copyin( qv2di_spechum(s:e,:) )       
+!$acc enter data copyin( p2di(s:e,:) )                
+!$acc enter data copyin( psuri(s:e) )               
+!$acc enter data copyin( hbot(s:e) )                
+!$acc enter data copyin( htop(s:e) )                
+!$acc enter data copyin( kcnv(s:e) )                
+!$acc enter data copyin( xland(s:e) )               
+!$acc enter data copyin( hfx2(s:e) )                
+!$acc enter data copyin( qfx2(s:e) )                
+!$acc enter data copyin( aod_gf(s:e) )              
+!$acc enter data copyin( cliw(s:e,:) )                
+!$acc enter data copyin( clcw(s:e,:) )                
+!$acc enter data copyin( pbl(s:e) )                 
+!$acc enter data copyin( ud_mf(s:e,:) )               
+!$acc enter data copyin( dd_mf(s:e,:) )               
+!$acc enter data copyin( dt_mf(s:e,:) )               
+!$acc enter data copyin( cnvw_moist(s:e,:) )          
+!$acc enter data copyin( cnvc(s:e,:) )                
+!$acc enter data copyin( dtend(s:e,:,:) )               
+!$acc enter data copyin( dtidx(:,:) )               
+!$acc enter data copyin( qci_conv(s:e,:))
+!$acc enter data copyin( ix_dfi_radar(:) )        
+!$acc enter data copyin( fh_dfi_radar(:) )        
+!$acc enter data copyin( cap_suppress(s:e,:) )
+
+   ENDDO
+!$omp end parallel do
+#endif
+
+   CALL SYSTEM_CLOCK (count=count_end)
+   elapsed = REAL (count_end - count_start) / REAL (count_rate)
+   PRINT*, "Finished copying data in =", elapsed  
+   PRINT*
 
    !--- Print state
    CALL print_state("Input state",   &
@@ -344,17 +405,30 @@ program test_gf
    CALL SYSTEM_CLOCK (count_rate=count_rate)
    CALL SYSTEM_CLOCK (count=count_start)
 
-   CALL cu_gf_driver_run(ntracer,garea,im,km,dt,flag_init,flag_restart,&
-               cactiv,cactiv_m,g,cp,xlv,r_v,forcet,forceqv_spechum,phil,raincv, &
-               qv_spechum,t,cld1d,us,vs,t2di,w,qv2di_spechum,p2di,psuri,        &
-               hbot,htop,kcnv,xland,hfx2,qfx2,aod_gf,cliw,clcw,                 &
-               pbl,ud_mf,dd_mf,dt_mf,cnvw_moist,cnvc,imfshalcnv,                &
+!$omp parallel do private(tid,s,e)
+   DO tid = 0, n_omp_threads - 1
+#ifdef _OPENACC
+       CALL acc_set_device_num(tid,acc_device_nvidia)
+#endif
+       s = tid * (im / n_omp_threads) + 1
+       e = (tid + 1) * (im / n_omp_threads)
+       e = MIN(e, im)
+
+       CALL cu_gf_driver_run(ntracer,garea(s:e),e-s+1,km,dt,flag_init,flag_restart,&
+               cactiv(s:e),cactiv_m(s:e),g,cp,xlv,r_v,forcet(s:e,:),forceqv_spechum(s:e,:),phil(s:e,:),raincv(s:e), &
+               qv_spechum(s:e,:),t(s:e,:),cld1d(s:e),us(s:e,:),vs(s:e,:),t2di(s:e,:),w(s:e,:), &
+               qv2di_spechum(s:e,:),p2di(s:e,:),psuri(s:e),        &
+               hbot(s:e),htop(s:e),kcnv(s:e),xland(s:e),hfx2(s:e),qfx2(s:e),aod_gf(s:e),cliw(s:e,:),clcw(s:e,:),                 &
+               pbl(s:e),ud_mf(s:e,:),dd_mf(s:e,:),dt_mf(s:e,:),cnvw_moist(s:e,:),cnvc(s:e,:),imfshalcnv,                &
                flag_for_scnv_generic_tend,flag_for_dcnv_generic_tend,           &
-               dtend,dtidx,ntqv,ntiw,ntcw,index_of_temperature,index_of_x_wind, &
+               dtend(s:e,:,:),dtidx(:,:),ntqv,ntiw,ntcw,index_of_temperature,index_of_x_wind, &
                index_of_y_wind,index_of_process_scnv,index_of_process_dcnv,     &
-               fhour,fh_dfi_radar,ix_dfi_radar,num_dfi_radar,cap_suppress,      &
-               dfi_radar_max_intervals,ldiag3d,qci_conv,do_cap_suppress,        &
+               fhour,fh_dfi_radar(:),ix_dfi_radar(:),num_dfi_radar,cap_suppress(s:e,:),      &
+               dfi_radar_max_intervals,ldiag3d,qci_conv(s:e,:),do_cap_suppress,        &
                errmsg,errflg)
+
+   ENDDO
+!$omp end parallel do
 
    CALL SYSTEM_CLOCK (count=count_end)
    elapsed = REAL (count_end - count_start) / REAL (count_rate)
@@ -365,44 +439,56 @@ program test_gf
    PRINT*, "Calling finalize"
    CALL cu_gf_driver_finalize()
 
-!$acc update self( garea )               
-!$acc update self( cactiv )              
-!$acc update self( cactiv_m )            
-!$acc update self( forcet )              
-!$acc update self( forceqv_spechum )     
-!$acc update self( phil )                
-!$acc update self( raincv )              
-!$acc update self( qv_spechum )          
-!$acc update self( t )                   
-!$acc update self( cld1d )               
-!$acc update self( us )                  
-!$acc update self( vs )                  
-!$acc update self( t2di )                
-!$acc update self( w )                   
-!$acc update self( qv2di_spechum )       
-!$acc update self( p2di )                
-!$acc update self( psuri )               
-!$acc update self( hbot )                
-!$acc update self( htop )                
-!$acc update self( kcnv )                
-!$acc update self( xland )               
-!$acc update self( hfx2 )                
-!$acc update self( qfx2 )                
-!$acc update self( aod_gf )              
-!$acc update self( cliw )                
-!$acc update self( clcw )                
-!$acc update self( pbl )                 
-!$acc update self( ud_mf )               
-!$acc update self( dd_mf )               
-!$acc update self( dt_mf )               
-!$acc update self( cnvw_moist )          
-!$acc update self( cnvc )                
-!$acc update self( dtend )               
-!$acc update self( dtidx )               
-!$acc update self( qci_conv)
-!$acc update self( ix_dfi_radar )        
-!$acc update self( fh_dfi_radar )        
-!$acc update self( cap_suppress)
+#ifdef _OPENACC
+!$omp parallel do private(gpuid,s,e)
+   DO gpuid = 0, N_GPUS - 1
+     CALL acc_set_device_num(gpuid,acc_device_nvidia)
+     s = gpuid * (im / N_GPUS) + 1
+     e = (gpuid + 1) * (im / N_GPUS)
+     e = MIN(e, im)
+
+!$acc update self( garea(s:e) )               
+!$acc update self( cactiv(s:e) )              
+!$acc update self( cactiv_m(s:e) )            
+!$acc update self( forcet(s:e,:) )              
+!$acc update self( forceqv_spechum(s:e,:) )     
+!$acc update self( phil(s:e,:) )                
+!$acc update self( raincv(s:e) )              
+!$acc update self( qv_spechum(s:e,:) )          
+!$acc update self( t(s:e,:) )                   
+!$acc update self( cld1d(s:e) )               
+!$acc update self( us(s:e,:) )                  
+!$acc update self( vs(s:e,:) )                  
+!$acc update self( t2di(s:e,:) )                
+!$acc update self( w(s:e,:) )                   
+!$acc update self( qv2di_spechum(s:e,:) )       
+!$acc update self( p2di(s:e,:) )                
+!$acc update self( psuri(s:e) )               
+!$acc update self( hbot(s:e) )                
+!$acc update self( htop(s:e) )                
+!$acc update self( kcnv(s:e) )                
+!$acc update self( xland(s:e) )               
+!$acc update self( hfx2(s:e) )                
+!$acc update self( qfx2(s:e) )                
+!$acc update self( aod_gf(s:e) )              
+!$acc update self( cliw(s:e,:) )                
+!$acc update self( clcw(s:e,:) )                
+!$acc update self( pbl(s:e) )                 
+!$acc update self( ud_mf(s:e,:) )               
+!$acc update self( dd_mf(s:e,:) )               
+!$acc update self( dt_mf(s:e,:) )               
+!$acc update self( cnvw_moist(s:e,:) )          
+!$acc update self( cnvc(s:e,:) )                
+!$acc update self( dtend(s:e,:,:) )               
+!$acc update self( dtidx(:,:) )               
+!$acc update self( qci_conv(s:e,:))
+!$acc update self( ix_dfi_radar(:) )        
+!$acc update self( fh_dfi_radar(:) )        
+!$acc update self( cap_suppress(s:e,:) )
+
+   ENDDO
+!$omp end parallel do
+#endif
 
    !--- Print state
    CALL print_state("Output state",   &
@@ -446,43 +532,56 @@ program test_gf
        cap_suppress             &
        )
    !-------------
-!$acc exit data delete( garea )               
-!$acc exit data delete( cactiv )              
-!$acc exit data delete( cactiv_m )            
-!$acc exit data delete( forcet )              
-!$acc exit data delete( forceqv_spechum )     
-!$acc exit data delete( phil )                
-!$acc exit data delete( raincv )              
-!$acc exit data delete( qv_spechum )          
-!$acc exit data delete( t )                   
-!$acc exit data delete( cld1d )               
-!$acc exit data delete( us )                  
-!$acc exit data delete( vs )                  
-!$acc exit data delete( t2di )                
-!$acc exit data delete( w )                   
-!$acc exit data delete( qv2di_spechum )       
-!$acc exit data delete( p2di )                
-!$acc exit data delete( psuri )               
-!$acc exit data delete( hbot )                
-!$acc exit data delete( htop )                
-!$acc exit data delete( kcnv )                
-!$acc exit data delete( xland )               
-!$acc exit data delete( hfx2 )                
-!$acc exit data delete( qfx2 )                
-!$acc exit data delete( aod_gf )              
-!$acc exit data delete( cliw )                
-!$acc exit data delete( clcw )                
-!$acc exit data delete( pbl )                 
-!$acc exit data delete( ud_mf )               
-!$acc exit data delete( dd_mf )               
-!$acc exit data delete( dt_mf )               
-!$acc exit data delete( cnvw_moist )          
-!$acc exit data delete( cnvc )                
-!$acc exit data delete( dtend )               
-!$acc exit data delete( dtidx )               
-!$acc exit data delete( qci_conv(1:im,1:km))
-!$acc exit data delete( ix_dfi_radar )        
-!$acc exit data delete( fh_dfi_radar )        
-!$acc exit data delete( cap_suppress)
+
+#ifdef _OPENACC
+!$omp parallel do private(gpuid,s,e)
+   DO gpuid = 0, N_GPUS - 1
+     CALL acc_set_device_num(gpuid,acc_device_nvidia)
+     s = gpuid * (im / N_GPUS) + 1
+     e = (gpuid + 1) * (im / N_GPUS)
+     e = MIN(e, im)
+
+!$acc exit data delete( garea(s:e) )               
+!$acc exit data delete( cactiv(s:e) )              
+!$acc exit data delete( cactiv_m(s:e) )            
+!$acc exit data delete( forcet(s:e,:) )              
+!$acc exit data delete( forceqv_spechum(s:e,:) )     
+!$acc exit data delete( phil(s:e,:) )                
+!$acc exit data delete( raincv(s:e) )              
+!$acc exit data delete( qv_spechum(s:e,:) )          
+!$acc exit data delete( t(s:e,:) )                   
+!$acc exit data delete( cld1d(s:e) )               
+!$acc exit data delete( us(s:e,:) )                  
+!$acc exit data delete( vs(s:e,:) )                  
+!$acc exit data delete( t2di(s:e,:) )                
+!$acc exit data delete( w(s:e,:) )                   
+!$acc exit data delete( qv2di_spechum(s:e,:) )       
+!$acc exit data delete( p2di(s:e,:) )                
+!$acc exit data delete( psuri(s:e) )               
+!$acc exit data delete( hbot(s:e) )                
+!$acc exit data delete( htop(s:e) )                
+!$acc exit data delete( kcnv(s:e) )                
+!$acc exit data delete( xland(s:e) )               
+!$acc exit data delete( hfx2(s:e) )                
+!$acc exit data delete( qfx2(s:e) )                
+!$acc exit data delete( aod_gf(s:e) )              
+!$acc exit data delete( cliw(s:e,:) )                
+!$acc exit data delete( clcw(s:e,:) )                
+!$acc exit data delete( pbl(s:e) )                 
+!$acc exit data delete( ud_mf(s:e,:) )               
+!$acc exit data delete( dd_mf(s:e,:) )               
+!$acc exit data delete( dt_mf(s:e,:) )               
+!$acc exit data delete( cnvw_moist(s:e,:) )          
+!$acc exit data delete( cnvc(s:e,:) )                
+!$acc exit data delete( dtend(s:e,:,:) )               
+!$acc exit data delete( dtidx(:,:) )               
+!$acc exit data delete( qci_conv(s:e,:))
+!$acc exit data delete( ix_dfi_radar(:) )        
+!$acc exit data delete( fh_dfi_radar(:) )        
+!$acc exit data delete( cap_suppress(s:e,:) )
+
+   ENDDO
+!$omp end parallel do
+#endif
 
 end program test_gf
