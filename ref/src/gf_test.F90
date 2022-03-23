@@ -11,6 +11,7 @@ program test_gf
 #endif
 
    IMPLICIT NONE
+   INCLUDE 'mpif.h'
 
    !--For init
    integer  :: imfshalcnv, imfshalcnv_gf
@@ -65,8 +66,22 @@ program test_gf
    integer :: alloc_stat
    integer :: n_omp_threads, s, e, tid
    integer :: N_GPUS, gpuid
+   integer, parameter :: DTEND_DIM = 12
+
+   integer rank, size, ierror
 
    !===============================
+   CALL MPI_INIT(ierror)
+   CALL MPI_COMM_SIZE(MPI_COMM_WORLD, size, ierror)
+   CALL MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierror)
+
+   gpuid = rank
+   PRINT*, 'MPI rank', rank
+
+#ifdef _OPENACC
+   CALL acc_set_device_num(gpuid,acc_device_nvidia)
+#endif
+
 #ifdef _OPENMP
 !$omp parallel
 !$omp single
@@ -76,7 +91,7 @@ program test_gf
 #endif
 
 #ifdef _OPENACC
-   N_GPUS = acc_get_num_devices(acc_device_nvidia)
+   N_GPUS = 1
    n_omp_threads = N_GPUS
    CALL omp_set_num_threads(n_omp_threads)
 #else
@@ -86,18 +101,11 @@ program test_gf
 #ifdef _OPENMP
    WRITE(6,'(" Using ",i3," threads")') n_omp_threads
 #endif
-#ifdef _OPENACC
-   WRITE(6,'(" Using ",i3," gpus")') N_GPUS
-#endif
 
    !===============================
    ntracer = 13
    im = 10240
-   km = 256
-   !increase workload by number of gpus
-#ifdef _OPENACC
-   im = N_GPUS * im
-#endif
+   km = 768
    ix = im
    dt = 600.0
    flag_init = .FALSE.
@@ -142,6 +150,8 @@ program test_gf
    !num_dfi_radar = 10
    !!===============================
 
+   CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
+
    PRINT*, "Allocating arrays"
    ALLOCATE(                        &
        garea(im),                   &
@@ -176,7 +186,7 @@ program test_gf
        dt_mf(im, km),               &
        cnvw_moist(ix, km),          &
        cnvc(ix, km),                &
-       dtend(im, km, 105),           & !confirm
+       dtend(im, km, DTEND_DIM),           & !confirm
        dtidx(113, 18),               & !integer
        qci_conv(im, km),            & !confirm
        ix_dfi_radar(num_dfi_radar), &
@@ -238,7 +248,7 @@ program test_gf
    ix_dfi_radar(:) = 1
    do i=1,113
      do j=1,18
-        dtidx(i,j) = 1 + mod(j,8) + mod(i,8)
+        dtidx(i,j) = 1 + mod(j,4) + mod(i,4)
      enddo
    enddo
    do i=1,num_dfi_radar
@@ -283,7 +293,7 @@ program test_gf
    !read(10,*) ((dt_mf(i,j), j=1,km), i=1,im)
    !read(10,*) ((cnvw_moist(i,j), j=1,km), i=1,im)
    !read(10,*) ((cnvc(i,j), j=1,km), i=1,im)
-   !read(10,*) (((dtend(i,j,k), k=1,105), j=1,km), i=1,im)
+   !read(10,*) (((dtend(i,j,k), k=1,DTEND_DIM), j=1,km), i=1,im)
    !read(10,*) ((dtidx(i,j), j=1,18), i=1,113)
    !read(10,*) ((qci_conv(i,j), j=1,km), i=1,im)
    !read(10,*) (ix_dfi_radar(i), i=1,num_dfi_radar)
@@ -293,19 +303,14 @@ program test_gf
    !close(10)
    !=============================================================
 
+   CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
    CALL SYSTEM_CLOCK (count_rate=count_rate)
    CALL SYSTEM_CLOCK (count=count_start)
 
 #ifdef _OPENACC
    PRINT*, "Copying arrays to GPU"
-!$omp parallel do private(gpuid,s,e)
-   DO gpuid = 0, N_GPUS - 1
-     CALL acc_set_device_num(gpuid,acc_device_nvidia)
-     s = gpuid * (im / N_GPUS) + 1
-     e = (gpuid + 1) * (im / N_GPUS)
-     e = MIN(e, im)
-     WRITE(6,'("GPU ",i3," working on ",i6," columns ",i6,":",i6)') gpuid,e-s+1,s,e
-
+   s = 1
+   e = im
 !$acc enter data copyin( garea(s:e) )               
 !$acc enter data copyin( cactiv(s:e) )              
 !$acc enter data copyin( cactiv_m(s:e) )            
@@ -345,14 +350,13 @@ program test_gf
 !$acc enter data copyin( fh_dfi_radar(:) )        
 !$acc enter data copyin( cap_suppress(s:e,:) )
 
-   ENDDO
-!$omp end parallel do
 #endif
 
    CALL SYSTEM_CLOCK (count=count_end)
    elapsed = REAL (count_end - count_start) / REAL (count_rate)
    PRINT*, "Finished copying data in =", elapsed  
    PRINT*
+   CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
 
    !--- Print state
    CALL print_state("Input state",   &
@@ -401,15 +405,15 @@ program test_gf
    CALL cu_gf_driver_init(imfshalcnv, imfshalcnv_gf, imfdeepcnv, &
                           imfdeepcnv_gf,mpirank, mpiroot, errmsg, errflg)
 
+   CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
    PRINT*, "Calling run"
    CALL SYSTEM_CLOCK (count_rate=count_rate)
    CALL SYSTEM_CLOCK (count=count_start)
 
+#ifndef _OPENACC
 !$omp parallel do private(tid,s,e)
-   DO tid = 0, n_omp_threads - 1
-#ifdef _OPENACC
-       CALL acc_set_device_num(tid,acc_device_nvidia)
 #endif
+   DO tid = 0, n_omp_threads - 1
        s = tid * (im / n_omp_threads) + 1
        e = (tid + 1) * (im / n_omp_threads)
        e = MIN(e, im)
@@ -428,8 +432,11 @@ program test_gf
                errmsg,errflg)
 
    ENDDO
+#ifndef _OPENACC
 !$omp end parallel do
+#endif
 
+   CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
    CALL SYSTEM_CLOCK (count=count_end)
    elapsed = REAL (count_end - count_start) / REAL (count_rate)
    PRINT*
@@ -440,13 +447,8 @@ program test_gf
    CALL cu_gf_driver_finalize()
 
 #ifdef _OPENACC
-!$omp parallel do private(gpuid,s,e)
-   DO gpuid = 0, N_GPUS - 1
-     CALL acc_set_device_num(gpuid,acc_device_nvidia)
-     s = gpuid * (im / N_GPUS) + 1
-     e = (gpuid + 1) * (im / N_GPUS)
-     e = MIN(e, im)
-
+   s = 1
+   e = im
 !$acc update self( garea(s:e) )               
 !$acc update self( cactiv(s:e) )              
 !$acc update self( cactiv_m(s:e) )            
@@ -485,9 +487,6 @@ program test_gf
 !$acc update self( ix_dfi_radar(:) )        
 !$acc update self( fh_dfi_radar(:) )        
 !$acc update self( cap_suppress(s:e,:) )
-
-   ENDDO
-!$omp end parallel do
 #endif
 
    !--- Print state
@@ -534,13 +533,8 @@ program test_gf
    !-------------
 
 #ifdef _OPENACC
-!$omp parallel do private(gpuid,s,e)
-   DO gpuid = 0, N_GPUS - 1
-     CALL acc_set_device_num(gpuid,acc_device_nvidia)
-     s = gpuid * (im / N_GPUS) + 1
-     e = (gpuid + 1) * (im / N_GPUS)
-     e = MIN(e, im)
-
+   s = 1
+   e = im
 !$acc exit data delete( garea(s:e) )               
 !$acc exit data delete( cactiv(s:e) )              
 !$acc exit data delete( cactiv_m(s:e) )            
@@ -579,9 +573,6 @@ program test_gf
 !$acc exit data delete( ix_dfi_radar(:) )        
 !$acc exit data delete( fh_dfi_radar(:) )        
 !$acc exit data delete( cap_suppress(s:e,:) )
-
-   ENDDO
-!$omp end parallel do
 #endif
 
 end program test_gf
