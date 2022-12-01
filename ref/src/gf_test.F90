@@ -3,6 +3,7 @@ program test_gf
    USE gf_utils
    USE cu_gf_driver
    USE machine, only: kind_phys
+#define MPI
 #ifdef _OPENMP
    USE omp_lib
 #endif
@@ -11,13 +12,13 @@ program test_gf
 #endif
 
    IMPLICIT NONE
+#ifdef MPI
    INCLUDE 'mpif.h'
+#endif
 
    !--For init
    integer  :: imfshalcnv, imfshalcnv_gf
    integer  :: imfdeepcnv, imfdeepcnv_gf
-   integer, parameter  :: mpirank = 0
-   integer, parameter  :: mpiroot = 0
    character(len=512)  :: errmsg
    integer             :: errflg
    integer             :: i,j,k
@@ -68,15 +69,28 @@ program test_gf
    integer :: N_GPUS, gpuid
    integer, parameter :: DTEND_DIM = 12
 
-   integer rank, size, ierror
+   integer ncol,nlev,ierror
+   character(64) :: str
+
+   ! MPI information
+   integer                    :: mpicomm
+   integer                    :: mpirank
+   integer                    :: mpiroot
+   integer                    :: mpisize
 
    !===============================
+#ifdef MPI
+   mpicomm = MPI_COMM_WORLD
+   mpiroot = 0
    CALL MPI_INIT(ierror)
-   CALL MPI_COMM_SIZE(MPI_COMM_WORLD, size, ierror)
-   CALL MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierror)
+   CALL MPI_COMM_SIZE(mpicomm, mpisize, ierror)
+   CALL MPI_COMM_RANK(mpicomm, mpirank, ierror)
 
-   gpuid = rank
-   PRINT*, 'MPI rank', rank
+   gpuid = mpirank
+#else
+   gpuid = 0
+#endif
+   PRINT*, 'MPI rank', mpirank
 
 #ifdef _OPENACC
    CALL acc_set_device_num(gpuid,acc_device_nvidia)
@@ -103,9 +117,24 @@ program test_gf
 #endif
 
    !===============================
+   if (COMMAND_ARGUMENT_COUNT().GE.1) THEN
+      CALL GET_COMMAND_ARGUMENT(1, str)
+      READ(str,*) ncol
+   else
+      ncol = 512
+   endif
+   if (COMMAND_ARGUMENT_COUNT().GE.2) THEN
+      CALL GET_COMMAND_ARGUMENT(2, str)
+      READ(str,*) nlev
+   else
+      nlev = 64
+   endif
+   print*, ncol, nlev
+   !===============================
+   !===============================
    ntracer = 13
-   im = 10240
-   km = 768
+   im = ncol
+   km = nlev
    ix = im
    dt = 600.0
    flag_init = .FALSE.
@@ -150,7 +179,9 @@ program test_gf
    !num_dfi_radar = 10
    !!===============================
 
+#ifdef MPI
    CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
+#endif
 
    PRINT*, "Allocating arrays"
    ALLOCATE(                        &
@@ -303,7 +334,10 @@ program test_gf
    !close(10)
    !=============================================================
 
+#ifdef MPI
    CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
+#endif
+
    CALL SYSTEM_CLOCK (count_rate=count_rate)
    CALL SYSTEM_CLOCK (count=count_start)
 
@@ -356,7 +390,10 @@ program test_gf
    elapsed = REAL (count_end - count_start) / REAL (count_rate)
    PRINT*, "Finished copying data in =", elapsed  
    PRINT*
+
+#ifdef MPI
    CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
+#endif
 
    !--- Print state
    CALL print_state("Input state",   &
@@ -405,7 +442,10 @@ program test_gf
    CALL cu_gf_driver_init(imfshalcnv, imfshalcnv_gf, imfdeepcnv, &
                           imfdeepcnv_gf,mpirank, mpiroot, errmsg, errflg)
 
+#ifdef MPI
    CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
+#endif
+
    PRINT*, "Calling run"
    CALL SYSTEM_CLOCK (count_rate=count_rate)
    CALL SYSTEM_CLOCK (count=count_start)
@@ -436,12 +476,15 @@ program test_gf
 !$omp end parallel do
 #endif
 
-   CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
    CALL SYSTEM_CLOCK (count=count_end)
    elapsed = REAL (count_end - count_start) / REAL (count_rate)
    PRINT*
    PRINT*, "Finished executing kernel in =", elapsed  
    PRINT*
+
+#ifdef MPI
+   CALL MPI_Barrier(MPI_COMM_WORLD,ierror)
+#endif
 
    PRINT*, "Calling finalize"
    CALL cu_gf_driver_finalize()
