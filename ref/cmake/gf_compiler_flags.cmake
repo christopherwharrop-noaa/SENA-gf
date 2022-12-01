@@ -1,6 +1,7 @@
 if( NOT CMAKE_BUILD_TYPE MATCHES "Debug" )
   add_definitions( -DNDEBUG )
 endif( )
+add_definitions( -DSINGLE_PREC )
 
 # Set flags depending on which compiler is used
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
