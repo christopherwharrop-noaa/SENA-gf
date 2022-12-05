@@ -36,6 +36,7 @@ if ( ENABLE_GPU )
   string(REPLACE "." "" CUDA_ARCH_LIST "${INSTALLED_GPU_CCS_4}")
   message( STATUS "CUDA_ARCH_LIST: ${CUDA_ARCH_LIST}" )
   SET(CMAKE_CUDA_ARCHITECTURES ${CUDA_ARCH_LIST})
+  add_compile_options("-Minfo=accel")
 endif()
 
 add_subdirectory(src)
