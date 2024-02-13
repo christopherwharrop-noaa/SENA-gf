@@ -69,6 +69,7 @@ program test_gf
    integer :: N_GPUS, gpuid
    integer, parameter :: DTEND_DIM = 12
 
+   integer :: M, N_STEPS
    integer ncol,nlev,ierror
    character(64) :: str
 
@@ -129,7 +130,13 @@ program test_gf
    else
       nlev = 64
    endif
-   print*, ncol, nlev
+   if (COMMAND_ARGUMENT_COUNT().GE.3) THEN
+      CALL GET_COMMAND_ARGUMENT(3, str)
+      READ(str,*) N_STEPS
+   else
+      N_STEPS = 1
+   endif
+   print*, ncol, nlev, N_STEPS
    !===============================
    !===============================
    ntracer = 13
@@ -458,7 +465,8 @@ program test_gf
        e = (tid + 1) * (im / n_omp_threads)
        e = MIN(e, im)
 
-       CALL cu_gf_driver_run(ntracer,garea(s:e),e-s+1,km,dt,flag_init,flag_restart,&
+       DO M = 1, N_STEPS
+          CALL cu_gf_driver_run(ntracer,garea(s:e),e-s+1,km,dt,flag_init,flag_restart,&
                cactiv(s:e),cactiv_m(s:e),g,cp,xlv,r_v,forcet(s:e,:),forceqv_spechum(s:e,:),phil(s:e,:),raincv(s:e), &
                qv_spechum(s:e,:),t(s:e,:),cld1d(s:e),us(s:e,:),vs(s:e,:),t2di(s:e,:),w(s:e,:), &
                qv2di_spechum(s:e,:),p2di(s:e,:),psuri(s:e),        &
@@ -470,6 +478,7 @@ program test_gf
                fhour,fh_dfi_radar(:),ix_dfi_radar(:),num_dfi_radar,cap_suppress(s:e,:),      &
                dfi_radar_max_intervals,ldiag3d,qci_conv(s:e,:),do_cap_suppress,        &
                errmsg,errflg)
+       ENDDO
 
    ENDDO
 #ifndef _OPENACC
