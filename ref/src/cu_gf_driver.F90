@@ -927,7 +927,8 @@ contains
                gdc(i,k,1)= max(0.,tun_rad_shall(i)*cupclws(i,k)*cutens(i))      ! my mod
                !gdc2(i,k,1)=max(0.,tun_rad_deep(i)*(cupclwm(i,k)*cutenm(i)+cupclw(i,k)*cuten(i)))
                !gdc2(i,k,1)=max(0.,tun_rad_mid(i)*cupclwm(i,k)*cutenm(i)+tun_rad_deep(i)*cupclw(i,k)*cuten(i)+tun_rad_shall(i)*cupclws(i,k)*cutens(i))
-               gdc2(i,k,1) = min(0.1, max(0.01, tun_rad_mid(i)*frhm(i)))*cupclwm(i,k)*cutenm(i) + min(0.1, max(0.01, tun_rad_deep(i)*(frhd(i))))*cupclw(i,k)*cuten(i) + tun_rad_shall(i)*cupclws(i,k)*cutens(i)
+               gdc2(i,k,1) = min(0.1, max(0.01, tun_rad_mid(i)*frhm(i)))*cupclwm(i,k)*cutenm(i) + &
+                 min(0.1, max(0.01, tun_rad_deep(i)*(frhd(i))))*cupclw(i,k)*cuten(i) + tun_rad_shall(i)*cupclws(i,k)*cutens(i)
                qci_conv(i,k)=gdc2(i,k,1)
                gdc(i,k,2)=(outt(i,k))*86400.
                gdc(i,k,3)=(outtm(i,k))*86400.
