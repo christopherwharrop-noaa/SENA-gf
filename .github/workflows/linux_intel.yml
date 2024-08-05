@@ -47,8 +47,8 @@ jobs:
       - name: Check compiler install
         run: |
           source /opt/intel/oneapi/setvars.sh
-          which icc
-          which ifort
+          which icx
+          which ifx
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout repository
