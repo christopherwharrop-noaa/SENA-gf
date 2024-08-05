@@ -21,6 +21,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      # Install OpenMPI
+      - name: Install OpenMPI
+        run: sudo apt-get install openmpi-bin libopenmpi-dev -y
+
       # Test debug mode
       - name: Build gf debug
         run: |

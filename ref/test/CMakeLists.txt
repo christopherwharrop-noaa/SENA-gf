@@ -18,7 +18,7 @@ set(COMPARE_SH ${CMAKE_BINARY_DIR}/bin/gf_compare.sh)
 
 # CPU kernel
 add_test(NAME cpu_kernel
-         COMMAND bash -c "../src/gf_kernel_cpu > test_output/gf_kernel_cpu.log")
+         COMMAND bash -c "${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS} ../src/gf_kernel_cpu > test_output/gf_kernel_cpu.log")
 add_test(NAME compare_cpu_kernel
            COMMAND ${COMPARE_SH} test_output/gf_kernel_cpu.log test_output/output.test)
 
@@ -27,7 +27,7 @@ if ( ENABLE_GPU )
 
   # GPU kernel version 1
   add_test(NAME gpu_kernel
-           COMMAND bash -c "../src/gf_kernel_gpu > test_output/gf_kernel_gpu.log")
+           COMMAND bash -c "${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS} ../src/gf_kernel_gpu > test_output/gf_kernel_gpu.log")
   add_test(NAME compare_gpu_kernel
            COMMAND ${COMPARE_SH} test_output/gf_kernel_gpu.log test_output/output.test)
 
