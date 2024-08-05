@@ -18,8 +18,8 @@ jobs:
     env:
       LINUX_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/d4e49548-1492-45c9-b678-8268cb0f1b05/l_HPCKit_p_2024.2.0.635_offline.sh
       CC: icc
-      FC: ifort
-      CXX: icpc
+      FC: ifx
+      CXX: icx
 
     steps:
       # Cache Intel HPC Toolkit
