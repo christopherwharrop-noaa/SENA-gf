@@ -18,7 +18,7 @@ set(COMPARE_SH ${CMAKE_BINARY_DIR}/bin/gf_compare.sh)
 
 # CPU kernel
 add_test(NAME cpu_kernel
-         COMMAND bash -c "../src/gf_kernel_cpu > test_output/gf_kernel_cpu.log")
+         COMMAND bash -c "srun -n 1 ../src/gf_kernel_cpu > test_output/gf_kernel_cpu.log")
 add_test(NAME compare_cpu_kernel
            COMMAND ${COMPARE_SH} test_output/gf_kernel_cpu.log test_output/output.test)
 
