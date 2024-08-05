@@ -63,8 +63,8 @@ jobs:
           mkdir build
           cd build
           export OMP_NUM_THREADS=4
-          export CC=icc
-          export FC=ifort
+          export CC=icx
+          export FC=ifx
           cmake -DCMAKE_BUILD_TYPE=debug ..
           make
           ulimit -s unlimited
@@ -79,8 +79,8 @@ jobs:
           mkdir build
           cd build
           export OMP_NUM_THREADS=4
-          export CC=icc
-          export FC=ifort
+          export CC=icx
+          export FC=ifx
           cmake -DCMAKE_BUILD_TYPE=release ..
           make
           ulimit -s unlimited
