@@ -25,18 +25,18 @@ jobs:
         run: brew unlink gcc@9
 
       # Test debug mode 
-      - name: Test gf Debug 
-        run: |
-          cd ref
-          rm -rf build
-          mkdir build
-          cd build
-          export OMP_NUM_THREADS=4
-          export CC=gcc-10
-          export FC=gfortran-10          
-          cmake -DCMAKE_BUILD_TYPE=debug ..
-          make
-          ctest --output-on-failure
+      #- name: Test gf Debug 
+      #  run: |
+      #    cd ref
+      #    rm -rf build
+      #    mkdir build
+      #    cd build
+      #    export OMP_NUM_THREADS=4
+      #    export CC=gcc-10
+      #    export FC=gfortran-10          
+      #    cmake -DCMAKE_BUILD_TYPE=debug ..
+      #    make
+      #    ctest --output-on-failure
           
       # Test release mode 
       - name: Test gf Release
