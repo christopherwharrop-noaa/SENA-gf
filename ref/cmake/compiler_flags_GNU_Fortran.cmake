@@ -1,7 +1,7 @@
 ####################################################################
 # COMMON FLAGS
 ####################################################################
-set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fbacktrace -ffp-contract=off ")
+set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fbacktrace -ffp-contract=off -fno-sign-zero ")
 
 ####################################################################
 # RELEASE FLAGS
