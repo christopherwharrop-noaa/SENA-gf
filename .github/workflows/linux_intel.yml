@@ -83,7 +83,6 @@ jobs:
           export FC=ifx
           cmake -DCMAKE_BUILD_TYPE=release -DENABLE_GPU=off ..
           make VERBOSE=1
-          ulimit -s unlimited
           ctest --output-on-failure
       -
         name: Debug session
