@@ -627,4 +627,8 @@ program test_gf
 !$acc exit data delete( cap_suppress(s:e,:) )
 #endif
 
+#ifdef MPI
+   CALL MPI_FINALIZE(ierror)
+#endif
+
 end program test_gf
