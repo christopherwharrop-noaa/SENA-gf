@@ -78,11 +78,11 @@ jobs:
           rm -rf build
           mkdir build
           cd build
-          export OMP_NUM_THREADS=4
+          #export OMP_NUM_THREADS=4
           export CC=icx
           export FC=ifx
-          cmake -DCMAKE_BUILD_TYPE=release ..
-          make
+          cmake -DCMAKE_BUILD_TYPE=release -DENABLE_GPU=off ..
+          make VERBOSE=1
           ulimit -s unlimited
           ctest --output-on-failure
       -
