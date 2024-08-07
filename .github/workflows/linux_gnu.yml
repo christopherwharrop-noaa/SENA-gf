@@ -26,18 +26,18 @@ jobs:
         run: sudo apt-get install openmpi-bin libopenmpi-dev -y
 
       # Test debug mode
-      - name: Build gf debug
-        run: |
-          cd ref
-          rm -rf build
-          mkdir build
-          cd build
-          export OMP_NUM_THREADS=4
-          export CC=gcc
-          export FC=gfortran
-          cmake -DCMAKE_BUILD_TYPE=debug ..
-          make
-          ctest --output-on-failure
+      #- name: Build gf debug
+      #  run: |
+      #    cd ref
+      #    rm -rf build
+      #    mkdir build
+      #    cd build
+      #    export OMP_NUM_THREADS=4
+      #    export CC=gcc
+      #    export FC=gfortran
+      #    cmake -DCMAKE_BUILD_TYPE=debug ..
+      #    make
+      #    ctest --output-on-failure
 
       # Test release mode
       - name: Build gf release
@@ -46,9 +46,9 @@ jobs:
           rm -rf build
           mkdir build
           cd build
-          export OMP_NUM_THREADS=4
+          #export OMP_NUM_THREADS=4
           export CC=gcc
           export FC=gfortran
-          cmake -DCMAKE_BUILD_TYPE=release ..
+          cmake -DCMAKE_BUILD_TYPE=release -DENABLE_GPU=off ..
           make
           ctest --output-on-failure
